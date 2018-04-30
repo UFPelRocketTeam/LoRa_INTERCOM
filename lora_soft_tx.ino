@@ -155,9 +155,6 @@ byte SPIwriteRegister(byte addr,byte value) {
 	{
 	};
 	result = SPDR;                   // Discard first reading
-More info:
-Absolutelyautomation.com 
-@absolutelyautom
 	SPDR = value;                     // Sending byte 
 	while (!(SPSR & (1<<SPIF)))       // Wait for transmission to finish
 	{
