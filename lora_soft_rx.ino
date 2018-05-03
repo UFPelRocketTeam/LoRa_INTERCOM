@@ -3,7 +3,7 @@ NiceRF LoRa1276 Module Arduino NANO Clone V3
 NANO        LoRa1276
 D11 MOSI    6  MOSI
 D12 MISO    5  MISO
-D13 SCK     4  SCK
+D13 SCK     4  SCK			RXQUEEN
 D10         7  NSS
 by absolutelyautomation.com
 */
@@ -15,10 +15,10 @@ by absolutelyautomation.com
 #define SCK    13
 #define SS     10
 #define NRESET 7
+/*
 #define TXEN   9
-#define RXEN   8
-#define LED1   A4
-#define LED2   A5
+#define RXEN   8 TXEN / RXEN DEPRECADO VER 2.0
+*/
 // register definition
 #define LR_RegFifo                       0x00
 #define LR_RegOpMode                     0x10
@@ -91,15 +91,8 @@ void setup() {
 	digitalWrite(SS,HIGH); //disabling LoRa module
 	// Initializing other I/O pins
 	pinMode(NRESET, OUTPUT);
-	pinMode(TXEN, OUTPUT);
-	pinMode(RXEN, OUTPUT);
-	pinMode(LED1, OUTPUT);
-	pinMode(LED2, OUTPUT);
 	digitalWrite(NRESET,HIGH); // Deassert reset
-	digitalWrite(TXEN,LOW); // Disabling tx antenna
-	digitalWrite(RXEN,LOW); // Disabling rx antenna
-	digitalWrite(LED1,LOW); 
-	digitalWrite(LED2,LOW); 
+
 	/* Initializing SPI registers
 	description of every SPCR register bits
 	| 7    | 6    | 5    | 4    | 3    | 2    | 1    | 0    |
@@ -124,8 +117,6 @@ Absolutelyautomation.com
 }
 void loop() {
 	unsigned char temp,payload_size;
-	digitalWrite(LED1,LOW); 
-	digitalWrite(LED2,LOW); 
 	reset_sx1276(); 
 	Config_SX1276();                                    // initialize RF module
 	init_rx();                                       // rx mode
@@ -134,33 +125,28 @@ void loop() {
 		if(temp & 0x40){                                        // wait for rxdone flag
 			SPIwriteRegister(LR_RegIrqFlags,0xff);
 				// clear interupt
-			temp = SPIreadRegister(LR_RegFifoRxCurrentaddr);
-// read RxCurrentaddr
-			SPIwriteRegister(LR_RegFifoAddrPtr,temp);
-// RxCurrentaddr -> FiFoAddrPtr
-			payload_size = SPIreadRegister(LR_RegRxNbBytes);
-// read packet size
-			SPIreadBurst(0x00, rxbuf, payload_size);
-				// read from fifo
+			temp = SPIreadRegister(LR_RegFifoRxCurrentaddr);// read RxCurrentaddr
+			SPIwriteRegister(LR_RegFifoAddrPtr,temp);// RxCurrentaddr -> FiFoAddrPtr
+			payload_size = SPIreadRegister(LR_RegRxNbBytes);// read packet size
+			SPIreadBurst(0x00, rxbuf, payload_size);// read from fifo
 			//"testing"
-			if( (rxbuf[0] == 't') && (rxbuf[6] == 'g') ) 
+			for (int j = 0 ; j <= payload_length; j++){
 				// simple packet verification, please! use CRC flag for more robustness
-			{
-				digitalWrite(LED2, !digitalRead(LED2));
+			
+				Serial.print(rxbuf[j]);
 				// Data OK toggle LED2
 				init_rx();
 			}
-			else
-			{
-				digitalWrite(LED1, !digitalRead(LED1));
-								// Data WRONG toggle LED1
-				init_rx();
-				// reinitialize rx when fail
-			}
+			
 		}
+		Serial.println();
+		init_rx();
 	}
 }
+
+
 byte SPIreadRegister(byte addr) {
+
 	byte result;
 	digitalWrite(SS, LOW);          // Select LoRa module
 	SPDR = addr;                    // Send address & Start transmission. In READ mode bit 7 of address is always 0! for sx1276
@@ -171,14 +157,12 @@ byte SPIreadRegister(byte addr) {
 	SPDR = 0x0;                     // Sending dummy byte to get the result
 	while (!(SPSR & (1<<SPIF)))     // Wait for transmission to finish
 	{
-More info:
-Absolutelyautomation.com 
-@absolutelyautom
 	};
 	result = SPDR;               // Reading register value
 	digitalWrite(SS, HIGH);         // Deselect LoRa module
 	return (result);
 }
+
 byte SPIwriteRegister(byte addr,byte value) {
 	byte result;
 	digitalWrite(SS, LOW);          // Select LoRa module
@@ -194,67 +178,69 @@ byte SPIwriteRegister(byte addr,byte value) {
 	result = SPDR;                   // Discard second reading
 	digitalWrite(SS, HIGH);         // Deselect LoRa module
 }
-void SPIwriteBurst(unsigned char addr, unsigned char *ptr, unsigned char len)
-{ 
-unsigned char i;
-unsigned char result;
-				digitalWrite(SS, LOW);          // Select LoRa module
-				SPDR = addr | 0x80;              // Send address & Start transmission. In WRITE mode bit 7 of address is always 1! for sx1276
-				while (!(SPSR & (1<<SPIF)))     // Wait for transmission to finish
-				{
-				};
-				result = SPDR;               // Discard first reading
-				for (i=0; i <= len; i++){
-					 SPDR = *ptr;                     // Sending bytes 
-					 while (!(SPSR & (1<<SPIF)))     // Wait for transmission to finish
-					 {
-					 };
-					 result = SPDR;               // Discard second reading  
-					 //DEBUG DEBUG DEBUG
-					 Serial.print(*ptr, HEX);
-					 //DEBUG DEBUG DEBUG
-					 ptr++;
-				} 
-				//DEBUG DEBUG DEBUG
-				Serial.print("\n");
-				// DEBUG DEBUG DEBUG        
-				digitalWrite(SS, HIGH);         // Deselect LoRa module
+
+
+void SPIwriteBurst(unsigned char addr, unsigned char *ptr, unsigned char len){ 
+	unsigned char i;
+	unsigned char result;
+	digitalWrite(SS, LOW);          // Select LoRa module
+	SPDR = addr | 0x80;              // Send address & Start transmission. In WRITE mode bit 7 of address is always 1! for sx1276
+	while (!(SPSR & (1<<SPIF)))     // Wait for transmission to finish
+	{
+	};
+	result = SPDR;               // Discard first reading
+	for (i=0; i <= len; i++){
+		 SPDR = *ptr;                     // Sending bytes 
+		 while (!(SPSR & (1<<SPIF)))     // Wait for transmission to finish
+		 {
+		 };
+		 result = SPDR;               // Discard second reading  
+		 //DEBUG DEBUG DEBUG
+		 Serial.print(*ptr, HEX);
+		 //DEBUG DEBUG DEBUG
+		 ptr++;
+	} 
+	//DEBUG DEBUG DEBUG
+	Serial.print("\n");
+	// DEBUG DEBUG DEBUG        
+	digitalWrite(SS, HIGH);         // Deselect LoRa module
 }
-void SPIreadBurst(unsigned char addr, unsigned char *ptr, unsigned char len)
-{
-unsigned char i;
-More info:
-Absolutelyautomation.com 
-@absolutelyautom
-unsigned char result;
-				digitalWrite(SS, LOW);          // Select LoRa module
-				SPDR = addr;                // Send address & Start transmission. In READ mode bit 7 of address is always 0! for sx1276
-				while (!(SPSR & (1<<SPIF)))     // Wait for transmission to finish
-				{
-				};
-				result = SPDR;               // Discard first reading
-				for (i=0; i <= len; i++){
-					 SPDR = 0;                     // Sending dummy byte to get the result
-					 while (!(SPSR & (1<<SPIF)))   // Wait for transmission to finish
-					 {
-					 };
-					 *ptr = SPDR;               // move pointer
-					 ptr++;
-				} 
-				//DEBUG DEBUG DEBUG
-				Serial.print("\n");
-				// DEBUG DEBUG DEBUG        
-				digitalWrite(SS, HIGH);         // Deselect LoRa module
+
+
+void SPIreadBurst(unsigned char addr, unsigned char *ptr, unsigned char len){
+	unsigned char i;
+	unsigned char result;
+	digitalWrite(SS, LOW);          // Select LoRa module
+	SPDR = addr;                // Send address & Start transmission. In READ mode bit 7 of address is always 0! for sx1276
+	while (!(SPSR & (1<<SPIF)))     // Wait for transmission to finish
+	{
+	};
+	result = SPDR;               // Discard first reading
+	for (i=0; i <= len; i++){
+	   SPDR = 0;                     // Sending dummy byte to get the result
+	   while (!(SPSR & (1<<SPIF)))   // Wait for transmission to finish
+	   {
+	   };
+	   *ptr = SPDR;               // move pointer
+	   ptr++;
+} 
+		//DEBUG DEBUG DEBUG
+		Serial.print("\n");
+		// DEBUG DEBUG DEBUG        
+		digitalWrite(SS, HIGH);         // Deselect LoRa module
+
 }
-void reset_sx1276(void)
-{
-		digitalWrite(TXEN, LOW);
-		digitalWrite(RXEN, LOW);
+
+
+void reset_sx1276(void){
+
 		digitalWrite(NRESET, LOW);
 		delay(10);
 		digitalWrite(NRESET, HIGH);
 		delay(20);    
+
 }  
+
 void Config_SX1276(void){
 
 	// put in sleep mode to configure
@@ -287,12 +273,10 @@ void Config_SX1276(void){
 	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);       // DIO5=ModeReady,DIO4=CadDetected
 	SPIwriteRegister(LR_RegOpMode,0x01);             // standby mode, high frequency
 }
-
+/*
 void mode_tx(void) {
 	
 	unsigned char addr,temp;
-	digitalWrite(TXEN,HIGH);                                // open tx antenna switch
-	digitalWrite(RXEN,LOW); 
 	SPIwriteRegister(REG_LR_DIOMAPPING1,0x41); 
 	// DIO0=TxDone,DIO1=RxTimeout,DIO3=ValidHeader
 	SPIwriteRegister(LR_RegIrqFlags,0xff);
@@ -311,24 +295,21 @@ void mode_tx(void) {
 	digitalWrite(LED1, !digitalRead(LED1));
 	temp=SPIreadRegister(LR_RegIrqFlags);
 	// read interput flag
-	while(!(temp&0x08)){
-	// wait for txdone flag
+	while(!(temp&0x08)){					// wait for txdone flag
+
 	temp=SPIreadRegister(LR_RegIrqFlags);
 	}
-	digitalWrite(TXEN,LOW);                                 // close tx antenna switch
-	digitalWrite(RXEN,LOW); 
+
 	SPIwriteRegister(LR_RegIrqFlags,0xff);
 	// clearing interupt
 	SPIwriteRegister(LR_RegOpMode,0x01);  
 	// standby mode, high frequency
 
 }
-
+*/
 void init_rx(void){
 
 	unsigned char addr; 
-	digitalWrite(TXEN,LOW);                                 // open rx antenna switch
-	digitalWrite(RXEN,HIGH);
 	SPIwriteRegister(REG_LR_DIOMAPPING1,0x01);
 	//DIO0=00, DIO1=00, DIO2=00, DIO3=01  DIO0=00--RXDONE
 	SPIwriteRegister(LR_RegIrqFlagsMask,0x3f);

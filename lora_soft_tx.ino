@@ -2,7 +2,7 @@
 NiceRF LoRa1276 Module Arduino NANO Clone V3
 NANO        LoRa1276
 D11 MOSI    6  MOSI
-D12 MISO    5  MISO
+D12 MISO    5  MISO				TXQUEEN
 D13 SCK     4  SCK
 D10         7  NSS
 by absolutelyautomation.com
@@ -15,10 +15,7 @@ by absolutelyautomation.com
 #define SCK    13
 #define SS     10
 #define NRESET 7
-#define TXEN   9
-#define RXEN   8
-#define LED1   A4
-#define LED2   A5
+
 // register definition
 #define LR_RegFifo                       0x00
 #define LR_RegOpMode                     0x01
@@ -96,8 +93,6 @@ void setup() {
 	digitalWrite(NRESET,HIGH); // Deassert reset
 	digitalWrite(TXEN,LOW); // Disabling tx antenna
 	digitalWrite(RXEN,LOW); // Disabling rx antenna
-	digitalWrite(LED1,LOW); 
-	digitalWrite(LED2,LOW); 
 	/* Initializing SPI registers
 	description of every SPCR register bits
 	| 7    | 6    | 5    | 4    | 3    | 2    | 1    | 0    |
@@ -108,10 +103,7 @@ void setup() {
 	MSTR - Enable SPI master mode (logic 1), slave mode (logic 0)
 	CPOL - Setup clock signal inactive in high (logic 1), inactive in low (logic 0)
 	CPHA - Read data on Falling Clock Edge (logic 1), Rising edge (logic 0)
-More info:
-Absolutelyautomation.com 
-@absolutelyautom
-	SPR1 y SPR0 - Setup SPI data rate: 00 Fastest (4MHz), 11 Slowest (250KHz)
+	SPR1 & SPR0 - Setup SPI data rate: 00 Fastest (4MHz), 11 Slowest (250KHz)
 	// SPCR = 01010011
 	//interupt disabled,spi enabled,most significant bit (msb) first,SPI master,clock inactive low,
 	data fech rising clock edge, slowest data rate*/
@@ -121,16 +113,16 @@ Absolutelyautomation.com
 	delay(10);
 }
 void loop() {
-	digitalWrite(LED1,LOW); 
-	digitalWrite(LED2,LOW); 
 	reset_sx1276(); 
 	Config_SX1276();  // intializing RF module
 	while(1){
 		mode_tx();
 	 // transmit packet
-		delay(300);
+		delay(10);
 	}
 }
+
+// ============ 
 byte SPIreadRegister(byte addr) {
 	byte result;
 	digitalWrite(SS, LOW);          // Select LoRa module
@@ -233,24 +225,17 @@ void Config_SX1276(void){
 	SPIwriteRegister(LR_RegOpMode,0x00);
 	// sleep mode, high frequency
 	delay(10);
-	SPIwriteRegister(REG_LR_TCXO,0x09);
-	// external crystal
-			SPIwriteRegister(LR_RegOpMode,0x80);
-	// LoRa mode, high frequency
-			SPIwriteRegister(LR_RegFrMsb,0xE4);
+	SPIwriteRegister(REG_LR_TCXO,0x09);// external crystal
+	SPIwriteRegister(LR_RegOpMode,0x80);// LoRa mode, high frequency
+	SPIwriteRegister(LR_RegFrMsb,0xE4);
 	SPIwriteRegister(LR_RegFrMid,0xC0);
-	SPIwriteRegister(LR_RegFrLsb,0x00);
-	// frequency：915 MHz
+	SPIwriteRegister(LR_RegFrLsb,0x00);// frequency：915 MHz
 	SPIwriteRegister(LR_RegPaConfig,0xFF);   // max output power PA_BOOST enabled
-	SPIwriteRegister(LR_RegOcp,0x0B);
-	// close over current protection  (ocp)
-	SPIwriteRegister(LR_RegLna,0x23);
-	// Enable LNA
-			SPIwriteRegister(LR_RegModemConfig1,0x72);   // signal bandwidth：125kHz,error coding= 4/5, explicit header mode
-	SPIwriteRegister(LR_RegModemConfig2,0xC7);
-	// spreading factor：12
-	SPIwriteRegister(LR_RegModemConfig3,0x08);
-	// LNA? optimized for low data rate
+	SPIwriteRegister(LR_RegOcp,0x0B);// close over current protection  (ocp)
+	SPIwriteRegister(LR_RegLna,0x23);// Enable LNA
+	SPIwriteRegister(LR_RegModemConfig1,0x72);   // signal bandwidth：125kHz,error coding= 4/5, explicit header mode
+	SPIwriteRegister(LR_RegModemConfig2,0xC7);	// spreading factor：12
+	SPIwriteRegister(LR_RegModemConfig3,0x08);	// LNA? optimized for low data rate
 	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);     // max receiving timeout
 	SPIwriteRegister(LR_RegPreambleMsb,0x00);
 	SPIwriteRegister(LR_RegPreambleLsb,16);          // preamble 16 bytes  
@@ -262,29 +247,22 @@ void Config_SX1276(void){
 }
 
 
-
-
 void mode_tx(void) {
 
 	unsigned char addr,temp;
-	digitalWrite(TXEN,HIGH);                                // open tx antenna switch
-	digitalWrite(RXEN,LOW); 
-	SPIwriteRegister(REG_LR_DIOMAPPING1,0x41); 
-	// DIO0=TxDone,DIO1=RxTimeout,DIO3=ValidHeader
-	SPIwriteRegister(LR_RegIrqFlags,0xff);
-	// clearing interupt
-	SPIwriteRegister(LR_RegIrqFlagsMask,0xf7);
-	// enabling txdone
-	SPIwriteRegister(LR_RegPayloadLength,payload_length);
-	// payload length
-	addr = SPIreadRegister(LR_RegFifoTxBaseAddr);
-	// read TxBaseAddr        
-	SPIwriteRegister(LR_RegFifoAddrPtr,addr);
-	// TxBaseAddr->FifoAddrPtr          
+	SPIwriteRegister(REG_LR_DIOMAPPING1,0x41); // DIO0=TxDone,DIO1=RxTimeout,DIO3=ValidHeader
+	
+	SPIwriteRegister(LR_RegIrqFlags,0xff);// clearing interupt
+	
+	SPIwriteRegister(LR_RegIrqFlagsMask,0xf7);// enabling txdone
+	
+	SPIwriteRegister(LR_RegPayloadLength,payload_length);// payload length
+	addr = SPIreadRegister(LR_RegFifoTxBaseAddr);// read TxBaseAddr        
+	SPIwriteRegister(LR_RegFifoAddrPtr,addr);// TxBaseAddr->FifoAddrPtr          
+	
 	SPIwriteBurst(0x00,txbuf,payload_length);   // write data in fifo
-	SPIwriteRegister(LR_RegOpMode,0x03);
-	// mode tx, high frequency
-	digitalWrite(LED1, !digitalRead(LED1));
+	SPIwriteRegister(LR_RegOpMode,0x03);		// mode tx, high frequency
+	Serial.println("Transmit");	
 	temp=SPIreadRegister(LR_RegIrqFlags);
 	// read interput flag
 	while(!(temp&0x08)){// wait for txdone flag
@@ -300,7 +278,7 @@ void mode_tx(void) {
 }
 
 
-
+/*
 
 void init_rx(void){
 
@@ -321,3 +299,4 @@ void init_rx(void){
 	// rx mode continuous high frequency
 	
 }
+*/
