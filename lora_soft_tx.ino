@@ -68,6 +68,8 @@ by absolutelyautomation.com
 unsigned char txbuf[payload_length]={'t','e','s','t','i','n','g'};
 // rx packet
 // Initialization
+
+unsigned long int pack_count = 0;
 void setup() {
 	byte temp = 0;  
 	// Initializing serial port, usefull for debuging 
@@ -107,8 +109,11 @@ void setup() {
 void loop() {
 		Serial.println("loop start");
 		mode_tx();
-		delay(100);
-		while(1);
+
+		Serial.print("\n >>>>>> PACKETS SENT: ");
+		Serial.println(pack_count);
+		delay(500);
+		
 
 
 }
@@ -260,6 +265,12 @@ void mode_tx(void) {
 	while(!(temp&0x08)){// wait for txdone flag
 		temp=SPIreadRegister(LR_RegIrqFlags);
 		Serial.print(".");
+		unsigned long int to = micros();
+		if ((to-t0)>17368968){
+			Serial.println("\n --------- transmit timeout --------");
+			break;
+			return;
+		}
 	}
 	
 
@@ -269,6 +280,10 @@ void mode_tx(void) {
 		Serial.println("\nTRANSMISSION OK");
 		Serial.print("transmit time:");
 		Serial.println(dt);
+
+		if (dt > 500){
+			pack_count++;
+		}
 		}
 	SPIwriteRegister(LR_RegIrqFlags,0xff);
 	// clearing interupt  
