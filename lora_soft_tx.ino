@@ -16,23 +16,18 @@ by absolutelyautomation.com
 #define SS     10
 #define NRESET 7
 
-// register definition
 #define LR_RegFifo                       0x00
 #define LR_RegOpMode                     0x01
-#define LR_RegBitrateMsb                 0x02
-#define LR_RegBitrateLsb                 0x03
-#define LR_RegFdevMsb                    0x04
-#define LR_RegFdMsb                      0x05
-#define LR_RegFrMsb                      0x06
-#define LR_RegFrMid                      0x07
-#define LR_RegFrLsb                      0x08
-#define LR_RegPaConfig                   0x09
-#define LR_RegPaRamp                     0x0A
-#define LR_RegOcp                        0x0B
-#define LR_RegLna                        0x0C
-#define LR_RegFifoAddrPtr                0x0D
-#define LR_RegFifoTxBaseAddr             0x0E
-#define LR_RegFifoRxBaseAddr             0x0F
+#define LR_RegFrMsb                      0x06 //msb frequencia portadora
+#define LR_RegFrMid                      0x07 //byte intermediario freq portadora
+#define LR_RegFrLsb                      0x08 //lsb freq portadora
+#define LR_RegPaConfig                   0x09 //controle amp de potencia
+#define LR_RegPaRamp                     0x0A //controle do ramp do pa
+#define LR_RegOcp                        0x0B //protecao sobrecorrente registrador
+#define LR_RegLna                        0x0C 
+#define LR_RegFifoAddrPtr                0x0D //ponteiro da fifo
+#define LR_RegFifoTxBaseAddr             0x0E //regiao tx da fifo
+#define LR_RegFifoRxBaseAddr             0x0F //regiao rx da fif0
 #define LR_RegFifoRxCurrentaddr          0x10
 #define LR_RegIrqFlagsMask               0x11
 #define LR_RegIrqFlags                   0x12
@@ -59,7 +54,6 @@ by absolutelyautomation.com
 #define REG_LR_DIOMAPPING1               0x40
 #define REG_LR_DIOMAPPING2               0x41
 #define REG_LR_VERSION                   0x42
-#define REG_LR_PLLHOP                    0x44
 #define REG_LR_TCXO                      0x4B
 #define REG_LR_PADAC                     0x4D
 #define REG_LR_FORMERTEMP                0x5B
@@ -67,12 +61,12 @@ by absolutelyautomation.com
 #define REG_LR_AGCTHRESH1                0x62
 #define REG_LR_AGCTHRESH2                0x63
 #define REG_LR_AGCTHRESH3                0x64
+
 // payload length
 #define payload_length  7
 // tx packet
 unsigned char txbuf[payload_length]={'t','e','s','t','i','n','g'};
 // rx packet
-unsigned char rxbuf[30];
 // Initialization
 void setup() {
 	byte temp = 0;  
@@ -86,13 +80,7 @@ void setup() {
 	digitalWrite(SS,HIGH); //disabling LoRa module
 	// Initializing other I/O pins
 	pinMode(NRESET, OUTPUT);
-	pinMode(TXEN, OUTPUT);
-	pinMode(RXEN, OUTPUT);
-	pinMode(LED1, OUTPUT);
-	pinMode(LED2, OUTPUT);
 	digitalWrite(NRESET,HIGH); // Deassert reset
-	digitalWrite(TXEN,LOW); // Disabling tx antenna
-	digitalWrite(RXEN,LOW); // Disabling rx antenna
 	/* Initializing SPI registers
 	description of every SPCR register bits
 	| 7    | 6    | 5    | 4    | 3    | 2    | 1    | 0    |
@@ -110,16 +98,19 @@ void setup() {
 	SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR1)|(1<<SPR0);
 	temp=SPSR;  //Reading and discarding previous data
 	temp=SPDR;  //Reading and discarding previous data
-	delay(10);
+	Serial.println("intializing");
+	reset_sx1276();
+	Config_SX1276();
+	delay(1000);
+  // intializing RF module
 }
 void loop() {
-	reset_sx1276(); 
-	Config_SX1276();  // intializing RF module
-	while(1){
+		Serial.println("loop start");
 		mode_tx();
-	 // transmit packet
-		delay(10);
-	}
+		delay(100);
+		while(1);
+
+
 }
 
 // ============ 
@@ -137,6 +128,8 @@ byte SPIreadRegister(byte addr) {
 	};
 	result = SPDR;               // Reading register value
 	digitalWrite(SS, HIGH);         // Deselect LoRa module
+	//Serial.println(result, BIN);
+
 	return (result);
 }
 byte SPIwriteRegister(byte addr,byte value) {
@@ -153,6 +146,7 @@ byte SPIwriteRegister(byte addr,byte value) {
 	};
 	result = SPDR;                   // Discard second reading
 	digitalWrite(SS, HIGH);         // Deselect LoRa module
+	//Serial.println(result, BIN);
 }
 
 
@@ -171,14 +165,13 @@ void SPIwriteBurst(unsigned char addr, unsigned char *ptr, unsigned char len){
 		 {
 		 };
 		 result = SPDR;               // Discard second reading  
-		 //DEBUG DEBUG DEBUG
+		 
 		 Serial.print(*ptr, HEX);
-		 //DEBUG DEBUG DEBUG
+		 
 		 ptr++;
 	} 
-	//DEBUG DEBUG DEBUG
-	Serial.print("\n");
-	// DEBUG DEBUG DEBUG        
+	
+	//Serial.println(result, BIN);
 	digitalWrite(SS, HIGH);         // Deselect LoRa module
 }
 
@@ -201,7 +194,7 @@ void SPIreadBurst(unsigned char addr, unsigned char *ptr, unsigned char len){
 	   ptr++;
 } 
 		//DEBUG DEBUG DEBUG
-		Serial.print("\n");
+	//	Serial.println(result, BIN);
 		// DEBUG DEBUG DEBUG        
 		digitalWrite(SS, HIGH);         // Deselect LoRa module
 
@@ -209,40 +202,42 @@ void SPIreadBurst(unsigned char addr, unsigned char *ptr, unsigned char len){
 
 void reset_sx1276(void){
 
-	digitalWrite(TXEN, LOW);
-	digitalWrite(RXEN, LOW);
+
 	digitalWrite(NRESET, LOW);
-	delay(10);
+	delay(100);
 	digitalWrite(NRESET, HIGH);
-	delay(20);    
+	delay(200);    
 
 }  
 
 
 void Config_SX1276(void){
-	
+	delay(100);
 	// put in sleep mode to configure
-	SPIwriteRegister(LR_RegOpMode,0x00);
+	SPIwriteRegister(LR_RegOpMode,0x0);
 	// sleep mode, high frequency
-	delay(10);
-	SPIwriteRegister(REG_LR_TCXO,0x09);// external crystal
-	SPIwriteRegister(LR_RegOpMode,0x80);// LoRa mode, high frequency
-	SPIwriteRegister(LR_RegFrMsb,0xE4);
-	SPIwriteRegister(LR_RegFrMid,0xC0);
-	SPIwriteRegister(LR_RegFrLsb,0x00);// frequency：915 MHz
-	SPIwriteRegister(LR_RegPaConfig,0xFF);   // max output power PA_BOOST enabled
-	SPIwriteRegister(LR_RegOcp,0x0B);// close over current protection  (ocp)
-	SPIwriteRegister(LR_RegLna,0x23);// Enable LNA
-	SPIwriteRegister(LR_RegModemConfig1,0x72);   // signal bandwidth：125kHz,error coding= 4/5, explicit header mode
-	SPIwriteRegister(LR_RegModemConfig2,0xC7);	// spreading factor：12
-	SPIwriteRegister(LR_RegModemConfig3,0x08);	// LNA? optimized for low data rate
-	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);     // max receiving timeout
+	delay(1000);
+	SPIwriteRegister(REG_LR_TCXO,0x09);				// external crystal
+	SPIwriteRegister(LR_RegOpMode,0x80);			// LoRa mode, sleep
+	SPIwriteRegister(LR_RegFrMsb,0x6C);
+	SPIwriteRegister(LR_RegFrMid,0x40);
+	SPIwriteRegister(LR_RegFrLsb,0x13);				// frequency：433 MHz
+	SPIwriteRegister(LR_RegPaConfig,0xFF);   		// max output power PA_BOOST enabled
+	SPIwriteRegister(LR_RegOcp,0x0B);				// close over current protection  (ocp)
+	SPIwriteRegister(LR_RegLna,0x23);				// Enable LNA
+	SPIwriteRegister(LR_RegModemConfig1,0x73);   	// signal bandwidth：125kHz,error coding= 4/5, explicit header mode
+	SPIwriteRegister(LR_RegModemConfig2,0xC7);		// spreading factor：12
+	SPIwriteRegister(LR_RegModemConfig3,0x08);		// LNA? optimized for low data rate
+	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);    // max receiving timeout
 	SPIwriteRegister(LR_RegPreambleMsb,0x00);
-	SPIwriteRegister(LR_RegPreambleLsb,16);          // preamble 16 bytes  
-	SPIwriteRegister(REG_LR_PADAC,0x87);             // transmission power 20dBm
-	SPIwriteRegister(LR_RegHopPeriod,0x00);          // no frequency hoping
-	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);       // DIO5=ModeReady,DIO4=CadDetected
-	SPIwriteRegister(LR_RegOpMode,0x01);             // standby mode, high frequency
+	SPIwriteRegister(LR_RegPreambleLsb,16);         // preamble 16 bytes  
+	SPIwriteRegister(REG_LR_PADAC,0x87);            // transmission power 20dBm
+	SPIwriteRegister(LR_RegHopPeriod,0x00);         // no frequency hoping
+	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);      // DIO5=ModeReady,DIO4=CadDetected
+	SPIwriteRegister(REG_LR_DIOMAPPING1,0x41); 		// DIO0=TxDone,DIO1=RxTimeout,DIO3=ValidHeader
+	delay(200);
+	SPIwriteRegister(LR_RegOpMode,0x81);            //LoRa standby
+	Serial.println("\nCONFIG DONE");
 
 }
 
@@ -250,30 +245,34 @@ void Config_SX1276(void){
 void mode_tx(void) {
 
 	unsigned char addr,temp;
-	SPIwriteRegister(REG_LR_DIOMAPPING1,0x41); // DIO0=TxDone,DIO1=RxTimeout,DIO3=ValidHeader
-	
+	SPIwriteRegister(LR_RegIrqFlagsMask,0xf7);// enabling txdone	
 	SPIwriteRegister(LR_RegIrqFlags,0xff);// clearing interupt
-	
-	SPIwriteRegister(LR_RegIrqFlagsMask,0xf7);// enabling txdone
-	
 	SPIwriteRegister(LR_RegPayloadLength,payload_length);// payload length
 	addr = SPIreadRegister(LR_RegFifoTxBaseAddr);// read TxBaseAddr        
 	SPIwriteRegister(LR_RegFifoAddrPtr,addr);// TxBaseAddr->FifoAddrPtr          
-	
 	SPIwriteBurst(0x00,txbuf,payload_length);   // write data in fifo
-	SPIwriteRegister(LR_RegOpMode,0x03);		// mode tx, high frequency
-	Serial.println("Transmit");	
+	delay(100);
+	SPIwriteRegister(LR_RegOpMode,0x83);
+	Serial.println("\nTX on");	
 	temp=SPIreadRegister(LR_RegIrqFlags);
 	// read interput flag
+	unsigned long int t0 = micros();
 	while(!(temp&0x08)){// wait for txdone flag
 		temp=SPIreadRegister(LR_RegIrqFlags);
+		Serial.print(".");
 	}
-	digitalWrite(TXEN,LOW);                                 // close tx antenna switch
-	digitalWrite(RXEN,LOW); 
+	
+
+	if (temp&0x08) {
+		unsigned long int tf = micros();
+		unsigned long int dt = tf - t0;
+		Serial.println("\nTRANSMISSION OK");
+		Serial.print("transmit time:");
+		Serial.println(dt);
+		}
 	SPIwriteRegister(LR_RegIrqFlags,0xff);
-	// clearing interupt
-	SPIwriteRegister(LR_RegOpMode,0x01);  
-	// standby mode, high frequency
+	// clearing interupt  
+	SPIwriteRegister(LR_RegOpMode,0x41);
 
 }
 
@@ -283,8 +282,6 @@ void mode_tx(void) {
 void init_rx(void){
 
 	unsigned char addr; 
-	digitalWrite(TXEN,LOW);                                 // open rx antenna switch
-	digitalWrite(RXEN,HIGH);
 	SPIwriteRegister(REG_LR_DIOMAPPING1,0x01);
 	//DIO0=00, DIO1=00, DIO2=00, DIO3=01  DIO0=00--RXDONE
 	SPIwriteRegister(LR_RegIrqFlagsMask,0x3f);
