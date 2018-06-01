@@ -73,7 +73,7 @@ unsigned long int pack_count = 0;
 void setup() {
 	byte temp = 0;  
 	// Initializing serial port, usefull for debuging 
-	Serial.begin(9600);
+	Serial.begin(115200);
 	// Initializing SPI pins
 	pinMode(MOSI, OUTPUT);
 	pinMode(MISO, INPUT);
@@ -112,7 +112,6 @@ void loop() {
 
 		Serial.print("\n >>>>>> PACKETS SENT: ");
 		Serial.println(pack_count);
-		delay(500);
 		
 
 
@@ -171,7 +170,7 @@ void SPIwriteBurst(unsigned char addr, unsigned char *ptr, unsigned char len){
 		 };
 		 result = SPDR;               // Discard second reading  
 		 
-		 Serial.print(*ptr, HEX);
+		 //Serial.print(*ptr, HEX);
 		 
 		 ptr++;
 	} 
@@ -228,7 +227,7 @@ void Config_SX1276(void){
 	SPIwriteRegister(LR_RegFrMid,0x40);
 	SPIwriteRegister(LR_RegFrLsb,0x13);				// frequency：433 MHz
 	SPIwriteRegister(LR_RegPaConfig,0xFF);   		// max output power PA_BOOST enabled
-	SPIwriteRegister(LR_RegPaRamp,0x08);			//pa ramp = 50 us
+	// SPIwriteRegister(LR_RegPaRamp,0x08);			//pa ramp = 50 us
 	SPIwriteRegister(LR_RegOcp,0x0B);				// close over current protection  (ocp)
 	SPIwriteRegister(LR_RegLna,0x23);				// Enable LNA
 	SPIwriteRegister(LR_RegModemConfig1,0x72);   // signal bandwidth：125kHz, error coding= 4/5, explicit header mode

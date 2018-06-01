@@ -73,7 +73,7 @@ unsigned char txbuf[payload_length]={'t','e','s','t','i','n','g'};
 // rx packet
 unsigned char rxbuf[30];
 unsigned long int packets_received = 0;
-
+byte rxflag = 0;
 // Initialization
 void setup() {
 	byte temp = 0;  
@@ -111,72 +111,73 @@ void setup() {
 	reset_sx1276(); 
 	Config_SX1276();  
 	SPIwriteRegister(LR_RegOpMode, 0x87); // coloca o rádio em modo de detecção
+	unsigned int irrqflags = SPIreadRegister(LR_RegIrqFlags);
+	Serial.println("\nWaiting for Channel Activity");
+	while ((irrqflags&1))
+	{
+		irrqflags = SPIreadRegister(LR_RegIrqFlags);
+		Serial.print(".");
+		if(irrqflags&4){Serial.println("No Signal. Retrying....");}
+	}
+
+	if (irrqflags&1){init_rx();}
+	
 }
 void loop() {
+	int status = SPIreadRegister(LR_RegModemStat);	
 	int flag = 0;
+	byte valid = SPIreadRegister(0x1C);
 	char temp;
 	Serial.println("\n =.=.=.=.=.=.=.=.=.=.=.=.=.= ");
 	unsigned char payload_size;
 	unsigned int irrqflags = SPIreadRegister(LR_RegIrqFlags);                 // read interupt
-
-	int status = SPIreadRegister(LR_RegModemStat);
-
+	// analisa retorno do status
 	if (status&32){Serial.println("\n--------- modem clear ---------");}
-
 	if (status&16){Serial.println("\n--------- header info valid ---------");}
-
-	if (status&4){Serial.println("\n--------- rx underway ---------");flag = 1;}
-
+	if (status&4){Serial.println("\n--------- rx underway ---------");}
 	if (status&2){Serial.println("\n--------- sync ok ---------");}
-
 	if (status&1){Serial.println("\n--------- signal detected ---------");}
 
-
-	
-	
-	if (irrqflags&64){
-	Serial.println("\n--------- RX DONE ---------");
-
-
-	if (flag == 1) {
-		Serial.println("\nA");
-		SPIwriteRegister(LR_RegIrqFlags,0xff);
-		Serial.println("\nB");
-		// clear interupt
-		temp = SPIreadRegister(LR_RegFifoRxCurrentaddr);
-		Serial.println("\nC");
-		// read RxCurrentaddr
+	if (irrqflags & 64){
+		if ((valid&0x40) && (!(irrqflags&32))){
+		Serial.println("\nA"); //debug
+		SPIwriteRegister(LR_RegIrqFlags,0xff);// clear interupt
+		Serial.println("\nB"); //debug
+		temp = SPIreadRegister(LR_RegFifoRxCurrentaddr);// read RxCurrentaddr
+		Serial.println("\nC");//debug
 		SPIwriteRegister(LR_RegFifoAddrPtr,temp);// RxCurrentaddr -> FiFoAddrPtr
-		Serial.println("\nD");
+		Serial.println("\nD");// debug
 		payload_size = SPIreadRegister(LR_RegRxNbBytes);// read packet size
-		byte base_addr = SPIreadRegister(LR_RegFifoRxBaseAddr);
-		Serial.println("\nE");
-		// SPIreadBurst(base_addr, rxbuf, payload_size); //ESSA FUNÇÃO TÁ CAGADA!
+		Serial.println("\n========== message ===============");//debug
 		for (int j = 0; j < payload_length; j++){
-			char a = SPIreadRegister(LR_RegFifo); // lê a posição apontada pelo RegFifoAddrPtr)
+			int a = SPIreadRegister(LR_RegFifo); // lê a posição apontada pelo RegFifoAddrPtr
 			// *** ponteiro incrementa automaticamente ***
 			Serial.print(a);
-	
+			}
+		Serial.println("\n========== end of message ===============");//debug
+		SPIwriteRegister(LR_RegFifoAddrPtr, 0x00);//resetar o ponteiro pra base do buffer
 		}
-	Serial.println();
-	Serial.println("\nF");
-	delay(100);
-	Serial.println("\nG");
-	packets_received++;
 	}
-	if (irrqflags&128){Serial.println("\n--------- RX TIMEOUT ---------");}
-	}
-
-	if (irrqflags&32){Serial.println("\n--------- CRC ERROR ---------");}
-	if (irrqflags&16){Serial.println("\n--------- VALID HEADER ---------");}
-	if (irrqflags&4){Serial.println("\n--------- CHANNEL ACTIVITY FINISHED ---------");}
-	if (irrqflags&2){Serial.println("\n--------- CHANNEL CHANGE ---------");}
-	if (irrqflags&1){Serial.println("\n--------- CHANNEL ACTIVITY DETECTED ---------");}
-	Serial.print("\n >>>>>> PACKETS RECEIVED: ");
-	Serial.println(packets_received);
-	SPIwriteRegister(LR_RegIrqFlags,0xff); // reseta flag do modem
+	else {Serial.println("\n INVALID CRC? READ FLAGS");}
+	if (!(valid&40)) {N}
+	int ValidPackets = (SPIreadRegister(0x16)<<8) | SPIreadRegister(0x17);
+	Serial.print("\n>>>> VALID PACKETS = ");
+	Serial.print(ValidPackets);
+	Serial.println("\n ==================== FLAGS ==================== ");
+	if (irrqflags&64){Serial.print(" |RX DONE|");}
+	if (irrqflags&32){Serial.print(" |CRC ERROR|");}
+	if (irrqflags&16){Serial.print(" |VALID HEADER|");}
+	if (irrqflags&4){Serial.print(" |CHANNEL ACTIVITY FINISHED|");}
+	if (irrqflags&2){Serial.print(" |CHANNEL CHANGE|");}
+	if (irrqflags&1){Serial.print(" |CHANNEL ACTIVITY DETECTED|");}
+	Serial.println("\n =============================================== ");
+	SPIwriteRegister(LR_RegIrqFlags, 0xff); // reseta as flags
+	SPIwriteRegister(LR_RegFifoAddrPtr, 0x00);//resetar o ponteiro pra base do buffer
 	delay(500);
 }
+			
+
+
 /*
 void storeMessage(){
 	byte baseaddr = SPIreadRegister(LR_RegFifoRxBaseAddr);
@@ -289,13 +290,14 @@ void Config_SX1276(void){
 	SPIwriteRegister(LR_RegOpMode,0x00);
 	// sleep mode, high frequency
 	delay(1000);
+
 	SPIwriteRegister(REG_LR_TCXO,0x09);// external crystal
 	SPIwriteRegister(LR_RegOpMode,0x80);// LoRa mode, high frequency
 	SPIwriteRegister(LR_RegFrMsb,0x6C);
 	SPIwriteRegister(LR_RegFrMid,0x40);
 	SPIwriteRegister(LR_RegFrLsb,0x13);       // frequency：433 MHz
 	SPIwriteRegister(LR_RegPaConfig,0xFF);   // max output power PA_BOOST enabled
-	SPIwriteRegister(LR_RegPaRamp,0x08);			//pa ramp = 50 us
+	//SPIwriteRegister(LR_RegPaRamp,0x08);			//pa ramp = 50 us
 	SPIwriteRegister(LR_RegOcp,0x0B);// close over current protection  (ocp)
 	SPIwriteRegister(LR_RegLna,0x23);// Enable LNA
 	SPIwriteRegister(LR_RegModemConfig1,0x72);   // signal bandwidth：125kHz, error coding= 4/5, explicit header mode
@@ -308,6 +310,7 @@ void Config_SX1276(void){
 	SPIwriteRegister(LR_RegHopPeriod,0x00);          // no frequency hoping
 	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);       // DIO5=ModeReady,DIO4=CadDetected
 	SPIwriteRegister(REG_LR_DIOMAPPING1,0x00);       // DIO0=RXdone,DIO1=RXtimeout
+	SPIwriteRegister(LR_RegFifoRxBaseAddr, 0x00);
 	delay(200);
 	SPIwriteRegister(LR_RegOpMode,0x81);             // standby mode, high frequency
 
@@ -352,7 +355,7 @@ void init_rx(void){
 	//DIO0=00, DIO1=00, DIO2=00, DIO3=01  DIO0=00--RXDONE
 	SPIwriteRegister(LR_RegOpMode, 0x85);//free run rx
 	SPIwriteRegister(LR_RegIrqFlags,0xff);// clearing interupt
-	SPIwriteRegister(LR_RegIrqFlagsMask,0x00);// enable rxdone and rxtimeout
+	SPIwriteRegister(LR_RegIrqFlagsMask,0x00);// disable rx timeout
 	
 	addr = SPIreadRegister(LR_RegFifoRxBaseAddr);// read RxBaseAddr
 	
