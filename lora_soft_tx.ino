@@ -228,10 +228,11 @@ void Config_SX1276(void){
 	SPIwriteRegister(LR_RegFrMid,0x40);
 	SPIwriteRegister(LR_RegFrLsb,0x13);				// frequency：433 MHz
 	SPIwriteRegister(LR_RegPaConfig,0xFF);   		// max output power PA_BOOST enabled
+	SPIwriteRegister(LR_RegPaRamp,0x08);			//pa ramp = 50 us
 	SPIwriteRegister(LR_RegOcp,0x0B);				// close over current protection  (ocp)
 	SPIwriteRegister(LR_RegLna,0x23);				// Enable LNA
-	SPIwriteRegister(LR_RegModemConfig1,0x73);   	// signal bandwidth：125kHz,error coding= 4/5, explicit header mode
-	SPIwriteRegister(LR_RegModemConfig2,0xC7);		// spreading factor：12
+	SPIwriteRegister(LR_RegModemConfig1,0x72);   // signal bandwidth：125kHz, error coding= 4/5, explicit header mode
+	SPIwriteRegister(LR_RegModemConfig2,0x77);		// spreading factor：7, CRC on
 	SPIwriteRegister(LR_RegModemConfig3,0x08);		// LNA? optimized for low data rate
 	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);    // max receiving timeout
 	SPIwriteRegister(LR_RegPreambleMsb,0x00);
@@ -240,6 +241,7 @@ void Config_SX1276(void){
 	SPIwriteRegister(LR_RegHopPeriod,0x00);         // no frequency hoping
 	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);      // DIO5=ModeReady,DIO4=CadDetected
 	SPIwriteRegister(REG_LR_DIOMAPPING1,0x41); 		// DIO0=TxDone,DIO1=RxTimeout,DIO3=ValidHeader
+	SPIwriteRegister(LR_RegFifoRxBaseAddr, 0x00);
 	delay(200);
 	SPIwriteRegister(LR_RegOpMode,0x81);            //LoRa standby
 	Serial.println("\nCONFIG DONE");
