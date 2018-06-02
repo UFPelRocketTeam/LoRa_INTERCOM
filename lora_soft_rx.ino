@@ -67,11 +67,11 @@ by absolutelyautomation.com
 #define REG_LR_AGCTHRESH3                0x64
 
 // payload length
-#define payload_length  7
+#define payload_length  14
 // tx packet
 unsigned char txbuf[payload_length]={'t','e','s','t','i','n','g'};
 // rx packet
-unsigned char rxbuf[30];
+int payl[30];
 unsigned long int packets_received = 0;
 byte rxflag = 0;
 // Initialization
@@ -107,86 +107,77 @@ void setup() {
 	temp=SPSR;  //Reading and discarding previous data
 	temp=SPDR;  //Reading and discarding previous data
 	delay(100);
-	Serial.println("---------- setup ok ----------");
-	reset_sx1276(); 
-	Config_SX1276();  
-	SPIwriteRegister(LR_RegOpMode, 0x87); // coloca o rádio em modo de detecção
-	unsigned int irrqflags = SPIreadRegister(LR_RegIrqFlags);
-	Serial.println("\nWaiting for Channel Activity");
-	while ((irrqflags&1))
-	{
-		irrqflags = SPIreadRegister(LR_RegIrqFlags);
-		Serial.print(".");
-		if(irrqflags&4){Serial.println("No Signal. Retrying....");}
-	}
+	Serial.println("---------- software setup ok ----------");
+	 
+	int config = Config_SX1276(); 
+	if (config = 1454){Serial.println("lora ok");} else {Serial.println("retry");}
 
-	if (irrqflags&1){init_rx();}
-	
-}
-void loop() {
-	int status = SPIreadRegister(LR_RegModemStat);	
-	int flag = 0;
-	byte valid = SPIreadRegister(0x1C);
-	char temp;
-	Serial.println("\n =.=.=.=.=.=.=.=.=.=.=.=.=.= ");
-	unsigned char payload_size;
-	unsigned int irrqflags = SPIreadRegister(LR_RegIrqFlags);                 // read interupt
-	// analisa retorno do status
-	if (status&32){Serial.println("\n--------- modem clear ---------");}
-	if (status&16){Serial.println("\n--------- header info valid ---------");}
-	if (status&4){Serial.println("\n--------- rx underway ---------");}
-	if (status&2){Serial.println("\n--------- sync ok ---------");}
-	if (status&1){Serial.println("\n--------- signal detected ---------");}
-
-	if (irrqflags & 64){
-		if ((valid&0x40) && (!(irrqflags&32))){
-		Serial.println("\nA"); //debug
-		SPIwriteRegister(LR_RegIrqFlags,0xff);// clear interupt
-		Serial.println("\nB"); //debug
-		temp = SPIreadRegister(LR_RegFifoRxCurrentaddr);// read RxCurrentaddr
-		Serial.println("\nC");//debug
-		SPIwriteRegister(LR_RegFifoAddrPtr,temp);// RxCurrentaddr -> FiFoAddrPtr
-		Serial.println("\nD");// debug
-		payload_size = SPIreadRegister(LR_RegRxNbBytes);// read packet size
-		Serial.println("\n========== message ===============");//debug
-		for (int j = 0; j < payload_length; j++){
-			int a = SPIreadRegister(LR_RegFifo); // lê a posição apontada pelo RegFifoAddrPtr
-			// *** ponteiro incrementa automaticamente ***
-			Serial.print(a);
-			}
-		Serial.println("\n========== end of message ===============");//debug
-		SPIwriteRegister(LR_RegFifoAddrPtr, 0x00);//resetar o ponteiro pra base do buffer
-		}
-	}
-	else {Serial.println("\n INVALID CRC? READ FLAGS");}
-	if (!(valid&40)) {N}
-	int ValidPackets = (SPIreadRegister(0x16)<<8) | SPIreadRegister(0x17);
-	Serial.print("\n>>>> VALID PACKETS = ");
-	Serial.print(ValidPackets);
-	Serial.println("\n ==================== FLAGS ==================== ");
-	if (irrqflags&64){Serial.print(" |RX DONE|");}
-	if (irrqflags&32){Serial.print(" |CRC ERROR|");}
-	if (irrqflags&16){Serial.print(" |VALID HEADER|");}
-	if (irrqflags&4){Serial.print(" |CHANNEL ACTIVITY FINISHED|");}
-	if (irrqflags&2){Serial.print(" |CHANNEL CHANGE|");}
-	if (irrqflags&1){Serial.print(" |CHANNEL ACTIVITY DETECTED|");}
-	Serial.println("\n =============================================== ");
-	SPIwriteRegister(LR_RegIrqFlags, 0xff); // reseta as flags
-	SPIwriteRegister(LR_RegFifoAddrPtr, 0x00);//resetar o ponteiro pra base do buffer
+	delay(2000);
+	byte flags = SPIreadRegister(LR_RegIrqFlags);
+	byte status = SPIreadRegister(LR_RegModemStat);
+	byte opmode = SPIreadRegister(LR_RegOpMode);
+	Serial.print("OPMODE = ");
+	Serial.println(opmode, HEX);
+	Serial.println("\n============ Status Flags ============");	
+	if (flags&16){Serial.print(" |Valid Header Received|");}
+	if (flags&32){Serial.print(" |Payload CRC Error|");}
+	if (flags&64){Serial.print(" |Packet Reception Complete|");}
+	Serial.println("\n============ Modem Status ============");
+	if (status&1){Serial.print("|Lora Preamble Detected|");}
+	if (status&2){Serial.print("|Modem Locked!|");}
+	if (status&4){Serial.print("|RX on-going|");}
+	if (status&8){Serial.print("|Header Info Valid|");}
+	if (status&16){Serial.print("|Modem Clear|");}
+	Serial.println("\n======================================");
+	SPIwriteRegister(LR_RegIrqFlags, 0xff);
+	delay(500);
+	init_rx(); 
+	delay(500);
+	flags = SPIreadRegister(LR_RegIrqFlags);
+	status = SPIreadRegister(LR_RegModemStat);
+	opmode = SPIreadRegister(LR_RegOpMode);
+	Serial.print("OPMODE = ");
+	Serial.println(opmode, HEX);
+	SPIwriteRegister(LR_RegIrqFlags, 0xff);
 	delay(500);
 }
-			
+void loop() {
+	byte flags = SPIreadRegister(LR_RegIrqFlags);
+	SPIwriteRegister(LR_RegFifoAddrPtr,0x00);
+	byte status = SPIreadRegister(LR_RegModemStat);
+	Serial.println("\n============ Status Flags ============");
+	byte opmode = SPIreadRegister(LR_RegOpMode);
+	Serial.println(opmode, HEX);
+	if (flags&16){Serial.print(" |Valid Header Received|");}
+	if (flags&32){Serial.print(" |Payload CRC Error|");}
+	if (flags&64){Serial.print(" |Packet Reception Complete|");}
+	Serial.println("\n============ Modem Status ============");
+	if (status&1){Serial.print("|Lora Preamble Detected|");}
+	if (status&2){Serial.print("|Modem Locked!|");}
+	if (status&4){Serial.print("|RX on-going|");}
+	if (status&8){Serial.print("|Header Info Valid|");}
+	if (status&16){Serial.print("|Modem Clear|");}
+	Serial.println("\n======================================");
+	if (flags == 0){
+		int size = SPIreadRegister(LR_RegRxNbBytes);
+		int addr = SPIreadRegister(LR_RegFifoRxByteAddr);
+		SPIwriteRegister(LR_RegFifoAddrPtr, (addr-size));
+		SPIwriteRegister(LR_RegOpMode, 0x81);
+		for (int p = 0; p<=13; p++) {
+				payl[p] = SPIreadRegister(0x00);;
+				Serial.print(payl[p]);
+				Serial.print("\t");
+				}
+			Serial.println();
+			SPIwriteRegister(LR_RegOpMode, 0x85);
+		}
+	
+	
+	SPIwriteRegister(LR_RegIrqFlags, 0xff);
+	delay(500);
 
-
-/*
-void storeMessage(){
-	byte baseaddr = SPIreadRegister(LR_RegFifoRxBaseAddr);
-	char *ptr = SPIreadRegister(LR_RegFifoRxCurrentaddr);
-	for (int j = 0; j < sizeof(rxbuf); j++){
-		rxbuf[j] = SPIreadRegister(LR_RegFifoAddrPtr+j)
-	}
 }
-*/
+
 byte SPIreadRegister(byte addr) {
 
 	byte result;
@@ -212,11 +203,13 @@ byte SPIwriteRegister(byte addr,byte value) {
 	while (!(SPSR & (1<<SPIF)))     // Wait for transmission to finish
 	{
 	};
+
 	result = SPDR;                   // Discard first reading
 	SPDR = value;                     // Sending byte 
 	while (!(SPSR & (1<<SPIF)))       // Wait for transmission to finish
 	{
 	};
+
 	result = SPDR;                   // Discard second reading
 	digitalWrite(SS, HIGH);         // Deselect LoRa module
 }
@@ -281,38 +274,69 @@ void reset_sx1276(void){
 	delay(100);
 	digitalWrite(NRESET, HIGH);
 	delay(200);    
+	Serial.println("Module Reset");
 
 }  
 
-void Config_SX1276(void){
-
+int Config_SX1276(void){
+	int a = 0
 	// put in sleep mode to configure
-	SPIwriteRegister(LR_RegOpMode,0x00);
+	a = SPIwriteRegister(LR_RegOpMode,0x00); // sleep
 	// sleep mode, high frequency
 	delay(1000);
-
-	SPIwriteRegister(REG_LR_TCXO,0x09);// external crystal
-	SPIwriteRegister(LR_RegOpMode,0x80);// LoRa mode, high frequency
+	reset_sx1276();
+	delay(200);
+	SPIwriteRegister(LR_RegOpMode,0x80);			// LoRa mode, sleep
+	SPIwriteRegister(REG_LR_TCXO,0x09);				// external crystal
 	SPIwriteRegister(LR_RegFrMsb,0x6C);
 	SPIwriteRegister(LR_RegFrMid,0x40);
-	SPIwriteRegister(LR_RegFrLsb,0x13);       // frequency：433 MHz
-	SPIwriteRegister(LR_RegPaConfig,0xFF);   // max output power PA_BOOST enabled
-	//SPIwriteRegister(LR_RegPaRamp,0x08);			//pa ramp = 50 us
-	SPIwriteRegister(LR_RegOcp,0x0B);// close over current protection  (ocp)
-	SPIwriteRegister(LR_RegLna,0x23);// Enable LNA
-	SPIwriteRegister(LR_RegModemConfig1,0x72);   // signal bandwidth：125kHz, error coding= 4/5, explicit header mode
-	SPIwriteRegister(LR_RegModemConfig2,0x77);// spreading factor：7, CRC on
-	SPIwriteRegister(LR_RegModemConfig3,0x08);// LNA? optimized for low data rate
-	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);     // max receiving timeout
-	SPIwriteRegister(LR_RegPreambleMsb,0x00);
-	SPIwriteRegister(LR_RegPreambleLsb,16);          // preamble 16 bytes  
-	SPIwriteRegister(REG_LR_PADAC,0x87);             // transmission power 20dBm
-	SPIwriteRegister(LR_RegHopPeriod,0x00);          // no frequency hoping
-	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);       // DIO5=ModeReady,DIO4=CadDetected
-	SPIwriteRegister(REG_LR_DIOMAPPING1,0x00);       // DIO0=RXdone,DIO1=RXtimeout
-	SPIwriteRegister(LR_RegFifoRxBaseAddr, 0x00);
+	SPIwriteRegister(LR_RegFrLsb,0x13);				// frequency：433 MHz
+	SPIwriteRegister(LR_RegPaConfig,0xFF);   		// max output power PA_BOOST enabled
+	SPIwriteRegister(LR_RegOcp,0x0B);				// close over current protection  (ocp)
+	SPIwriteRegister(LR_RegLna,0x23);				// Enable LNA
+	SPIwriteRegister(LR_RegModemConfig1,0x72); 		// signal bandwidth：125kHz, error coding= 4/5, explicit header mode
+	SPIwriteRegister(LR_RegModemConfig2,0x77);		// spreading factor：7, CRC on
+	SPIwriteRegister(LR_RegModemConfig3,0x04);		// Low Noise amp controlado pelo controle automatico de ganho
+	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);    // max receiving timeout
+	SPIwriteRegister(LR_RegPreambleMsb,0x00);		//
+	SPIwriteRegister(LR_RegPreambleLsb,16);         // preamble 16 bytes  
+	SPIwriteRegister(LR_RegPayloadLength,0x38);		// payload 54 bytes
+	SPIwriteRegister(LR_RegMaxPayloadLength,0x3C);	// payload max 60 bytes
+	SPIwriteRegister(REG_LR_PADAC,0x87);            // transmission power 20dBm
+	SPIwriteRegister(LR_RegHopPeriod,0x00);         // no frequency hoping
+	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);      // DIO5=ModeReady,DIO4=CadDetected
+	SPIwriteRegister(REG_LR_DIOMAPPING1,0x41); 		// DIO0=TxDone,DIO1=RxTimeout,DIO3=ValidHeader
+	SPIwriteRegister(LR_RegFifoRxBaseAddr, 0x00);	// mapeia toda a fifo pra RX
+	
+
+	// check config
+		a=SPIreadRegister(LR_RegOpMode);
+		a=a+SPIreadRegister(REG_LR_TCXO);
+		a=a+SPIreadRegister(LR_RegFrMsb);
+		a=a+SPIreadRegister(LR_RegFrMid);
+		a=a+SPIreadRegister(LR_RegFrLsb);
+		a=a+SPIreadRegister(LR_RegPaConfig);
+		a=a+SPIreadRegister(LR_RegOcp);
+		a=a+SPIreadRegister(LR_RegLna);
+		a=a+SPIreadRegister(LR_RegModemConfig1);
+		a=a+SPIreadRegister(LR_RegModemConfig2);
+		a=a+SPIreadRegister(LR_RegModemConfig3);
+		a=a+SPIreadRegister(LR_RegSymbTimeoutLsb);
+		a=a+SPIreadRegister(LR_RegPreambleMsb);
+		a=a+SPIreadRegister(LR_RegPreambleLsb);
+		a=a+SPIreadRegister(LR_RegPayloadLength);
+		a=a+SPIreadRegister(LR_RegMaxPayloadLength);
+		a=a+SPIreadRegister(REG_LR_PADAC);
+		a=a+SPIreadRegister(LR_RegHopPeriod);
+		a=a+SPIreadRegister(REG_LR_DIOMAPPING2);
+		a=a+SPIreadRegister(REG_LR_DIOMAPPING1);
+		a=a+SPIreadRegister(LR_RegFifoRxBaseAddr);
+
+	
+	
 	delay(200);
-	SPIwriteRegister(LR_RegOpMode,0x81);             // standby mode, high frequency
+	SPIwriteRegister(LR_RegOpMode,0x85);             // standby mode, high frequency
+	return a;
 
 }
 /*
@@ -350,17 +374,27 @@ void mode_tx(void) {
 }
 */
 void init_rx(void){
-
 	unsigned char addr; 
 	//DIO0=00, DIO1=00, DIO2=00, DIO3=01  DIO0=00--RXDONE
-	SPIwriteRegister(LR_RegOpMode, 0x85);//free run rx
+	SPIwriteRegister(LR_RegOpMode, 0x87);//free run rx
+	Serial.println("Switching to RX CONTINUOUS");
+	byte opmode = SPIreadRegister(LR_RegOpMode);
+	delay(100);
+
+	while(opmode != 0x87){
+		Serial.println(opmode, HEX);
+		
+		delay(200);
+		SPIwriteRegister(0x01, 0x85);
+		delay(200);
+		opmode = SPIreadRegister(0x01);
+	}
+
 	SPIwriteRegister(LR_RegIrqFlags,0xff);// clearing interupt
-	SPIwriteRegister(LR_RegIrqFlagsMask,0x00);// disable rx timeout
-	
+	SPIwriteRegister(LR_RegIrqFlagsMask,0x80);// disable rx timeout
 	addr = SPIreadRegister(LR_RegFifoRxBaseAddr);// read RxBaseAddr
 	
 	SPIwriteRegister(LR_RegFifoAddrPtr,addr);// RxBaseAddr->FifoAddrPtr
-	rxflag = 1;
-	Serial.println("---------- RX FREE RUN ENABLED ----------");
+	Serial.println("\n---------- RX FREE RUN ENABLED ----------");
 
 }
