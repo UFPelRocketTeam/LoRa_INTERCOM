@@ -3,13 +3,14 @@
 
 
 #include "Arduino.h"
+/*
 #include "SFE_BMP180.h"
 //#include "MPU6050.h"
 #include "Wire.h"
 #include "I2Cdev.h"
 //#include "SD.h"
 #include "SPI.h"
-
+*/
 
 //ENDEREÇOS I2C nav
 #define ACCEL 0x53
@@ -117,10 +118,10 @@ int pqd_flag=0;
 */
 
 
-SFE_BMP180 bmp180;
+//SFE_BMP180 bmp180;
 char filename[7]="00.TXT";  //nome do arquivo inicial
 
-int payload[14]={0,0,0,0,0,0,0,0,0,0,0,0,0};
+int8_t payload[14]={0,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,0xAA,0xBB,0xCC,0xDD,0xEE,0xFF};
 
 
 void setup(){
@@ -129,7 +130,7 @@ void setup(){
 
 	Serial.begin(9600);
 	Wire.begin();
-	payload[1] = bmp180.altitude();
+	/*payload[1] = bmp180.altitude();
 	payload[13]=payload[1];
 	payload[2] = bmp180.getPressure();
 	payload[3] = bmp180.getTemperatureC();
@@ -187,7 +188,7 @@ void setup(){
   }
 
 	// =========================
-
+*/
 	byte temp = 0;  
 	// Initializing serial port, usefull for debuging 
 	Serial.begin(9600);
@@ -257,7 +258,7 @@ void setup(){
 
 
 void loop(){
-	bool acc_rdy, mag_rdy, gyr_rdy = false;
+	/*bool acc_rdy, mag_rdy, gyr_rdy = false;
 	payload[0] = millis();
 	payload[1] = bmp180.altitude();
 	payload[2] = bmp180.getPressure();
@@ -280,14 +281,16 @@ void loop(){
 
 	if (acc_rdy && mag_rdy && gyr_rdy){
 		transmit();
-		/*for (int j = 0; j<14; j++){
+		for (int j = 0; j<14; j++){
 			Serial.print(payload[j]);
 			Serial.print("\t");
 
 		}
-		*/
+		
 		Serial.println("tx complete");
 	}
+	*/
+	transmit();
 }
 
 byte SPIreadRegister(byte addr) {
@@ -386,8 +389,14 @@ void transmit(void) {
 	SPIwriteRegister(LR_RegPayloadLength,payload_length);// payload length
 	addr = SPIreadRegister(LR_RegFifoTxBaseAddr);// read TxBaseAddr        
 	SPIwriteRegister(LR_RegFifoAddrPtr,addr);// TxBaseAddr->FifoAddrPtr          
-	SPIwriteBurst(0x00,payload,payload_length);   // write data in fifo
+	//SPIwriteBurst(0x00,payload,payload_length);   // write data in fifo
+	for (int m=0;m<=payload_length;m++){
+		SPIwriteRegister(0x00, payload[m]);
+	}
 	delay(100);
+	/*for (int m=0;m<=payload_length;m++){
+		Serial.print(SPIreadRegister(0x00));
+	}*/
 	SPIwriteRegister(LR_RegOpMode,0x83);
 	Serial.println("\nTX on");	
 	temp=SPIreadRegister(LR_RegIrqFlags);
@@ -406,7 +415,7 @@ void transmit(void) {
 	}
 	Serial.println();
 }
-
+/*
 
 
 bool read_acc(void){
@@ -497,3 +506,4 @@ bool read_gyro(void){
 }
 
 
+*/

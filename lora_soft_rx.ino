@@ -145,9 +145,10 @@ void loop() {
 	byte flags = SPIreadRegister(LR_RegIrqFlags);
 	SPIwriteRegister(LR_RegFifoAddrPtr,0x00);
 	byte status = SPIreadRegister(LR_RegModemStat);
-	Serial.println("\n============ Status Flags ============");
 	byte opmode = SPIreadRegister(LR_RegOpMode);
 	Serial.println(opmode, HEX);
+	Serial.println("\n============ Status Flags ============");
+
 	if (flags&16){Serial.print(" |Valid Header Received|");}
 	if (flags&32){Serial.print(" |Payload CRC Error|");}
 	if (flags&64){Serial.print(" |Packet Reception Complete|");}
@@ -158,14 +159,14 @@ void loop() {
 	if (status&8){Serial.print("|Header Info Valid|");}
 	if (status&16){Serial.print("|Modem Clear|");}
 	Serial.println("\n======================================");
-	if (flags == 0){
+	if ((flags&16) && (flags&64)){
 		int size = SPIreadRegister(LR_RegRxNbBytes);
 		int addr = SPIreadRegister(LR_RegFifoRxByteAddr);
 		SPIwriteRegister(LR_RegFifoAddrPtr, (addr-size));
 		SPIwriteRegister(LR_RegOpMode, 0x81);
 		for (int p = 0; p<=13; p++) {
 				payl[p] = SPIreadRegister(0x00);;
-				Serial.print(payl[p]);
+				Serial.print(payl[p],HEX);
 				Serial.print("\t");
 				}
 			Serial.println();
@@ -174,7 +175,6 @@ void loop() {
 	
 	
 	SPIwriteRegister(LR_RegIrqFlags, 0xff);
-	delay(500);
 
 }
 
@@ -271,9 +271,9 @@ void SPIreadBurst(unsigned char addr, unsigned char *ptr, unsigned char len){
 void reset_sx1276(void){
 
 	digitalWrite(NRESET, LOW);
-	delay(100);
+	delay(1000);
 	digitalWrite(NRESET, HIGH);
-	delay(200);    
+	delay(1000);    
 	Serial.println("Module Reset");
 
 }  
@@ -300,8 +300,8 @@ int Config_SX1276(void){
 	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);    // max receiving timeout
 	SPIwriteRegister(LR_RegPreambleMsb,0x00);		//
 	SPIwriteRegister(LR_RegPreambleLsb,16);         // preamble 16 bytes  
-	SPIwriteRegister(LR_RegPayloadLength,0x38);		// payload 54 bytes
-	SPIwriteRegister(LR_RegMaxPayloadLength,0x3C);	// payload max 60 bytes
+	SPIwriteRegister(LR_RegPayloadLength,14);		// payload 54 bytes
+	SPIwriteRegister(LR_RegMaxPayloadLength,15);	// payload max 60 bytes
 	SPIwriteRegister(REG_LR_PADAC,0x87);            // transmission power 20dBm
 	SPIwriteRegister(LR_RegHopPeriod,0x00);         // no frequency hoping
 	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);      // DIO5=ModeReady,DIO4=CadDetected
@@ -376,13 +376,13 @@ void mode_tx(void) {
 void init_rx(void){
 	unsigned char addr; 
 	//DIO0=00, DIO1=00, DIO2=00, DIO3=01  DIO0=00--RXDONE
-	SPIwriteRegister(LR_RegOpMode, 0x87);//free run rx
+	SPIwriteRegister(LR_RegOpMode, 0x85);//free run rx
 	Serial.println("Switching to RX CONTINUOUS");
 	byte opmode = SPIreadRegister(LR_RegOpMode);
 	delay(100);
 
-	while(opmode != 0x87){
-		Serial.println(opmode, HEX);
+	while(opmode != 0x85){
+		Serial.print(".");
 		
 		delay(200);
 		SPIwriteRegister(0x01, 0x85);
