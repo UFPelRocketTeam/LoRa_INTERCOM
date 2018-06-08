@@ -69,16 +69,16 @@ by absolutelyautomation.com
 // payload length
 #define payload_length  14
 // tx packet
-unsigned char txbuf[payload_length]={'t','e','s','t','i','n','g'};
+//unsigned char txbuf[payload_length]={'t','e','s','t','i','n','g'};
 // rx packet
-int payl[30];
+unsigned char payl[14]={0,0,0,0,0,0,0,0,0,0,0,0,0};
 unsigned long int packets_received = 0;
 byte rxflag = 0;
 // Initialization
 void setup() {
 	byte temp = 0;  
 	// Initializing serial port, usefull for debuging 
-	Serial.begin(9600);
+	Serial.begin(115200);
 	// Initializing SPI pins
 	pinMode(MOSI, OUTPUT);
 	pinMode(MISO, INPUT);
@@ -111,8 +111,6 @@ void setup() {
 	 
 	int config = Config_SX1276(); 
 	if (config = 1454){Serial.println("lora ok");} else {Serial.println("retry");}
-
-	delay(2000);
 	byte flags = SPIreadRegister(LR_RegIrqFlags);
 	byte status = SPIreadRegister(LR_RegModemStat);
 	byte opmode = SPIreadRegister(LR_RegOpMode);
@@ -139,14 +137,14 @@ void setup() {
 	Serial.print("OPMODE = ");
 	Serial.println(opmode, HEX);
 	SPIwriteRegister(LR_RegIrqFlags, 0xff);
-	delay(500);
+
 }
 void loop() {
 	byte flags = SPIreadRegister(LR_RegIrqFlags);
 	SPIwriteRegister(LR_RegFifoAddrPtr,0x00);
 	byte status = SPIreadRegister(LR_RegModemStat);
 	byte opmode = SPIreadRegister(LR_RegOpMode);
-	Serial.println(opmode, HEX);
+	/*Serial.println(opmode, HEX);
 	Serial.println("\n============ Status Flags ============");
 
 	if (flags&16){Serial.print(" |Valid Header Received|");}
@@ -158,19 +156,22 @@ void loop() {
 	if (status&4){Serial.print("|RX on-going|");}
 	if (status&8){Serial.print("|Header Info Valid|");}
 	if (status&16){Serial.print("|Modem Clear|");}
-	Serial.println("\n======================================");
-	if ((flags&16) && (flags&64)){
+	Serial.println("\n======================================");*/
+	if ((flags&16) && (!(flags&32))){
 		int size = SPIreadRegister(LR_RegRxNbBytes);
 		int addr = SPIreadRegister(LR_RegFifoRxByteAddr);
-		SPIwriteRegister(LR_RegFifoAddrPtr, (addr-size));
+		SPIwriteRegister(LR_RegFifoAddrPtr,0x00);
 		SPIwriteRegister(LR_RegOpMode, 0x81);
 		for (int p = 0; p<=13; p++) {
 				payl[p] = SPIreadRegister(0x00);;
-				Serial.print(payl[p],HEX);
+				Serial.print(payl[p],DEC);
 				Serial.print("\t");
 				}
 			Serial.println();
+			SPIwriteRegister(LR_RegFifoAddrPtr,0x00);
 			SPIwriteRegister(LR_RegOpMode, 0x85);
+		} else if(flags&32){
+			delay(300);
 		}
 	
 	
@@ -215,7 +216,7 @@ byte SPIwriteRegister(byte addr,byte value) {
 }
 
 
-void SPIwriteBurst(unsigned char addr, unsigned char *ptr, unsigned char len){ 
+void SPIwriteBurst(unsigned char addr, char *ptr, unsigned char len){ 
 	unsigned char i;
 	unsigned char result;
 	digitalWrite(SS, LOW);          // Select LoRa module
@@ -279,7 +280,7 @@ void reset_sx1276(void){
 }  
 
 int Config_SX1276(void){
-	int a = 0
+	int a = 0;
 	// put in sleep mode to configure
 	a = SPIwriteRegister(LR_RegOpMode,0x00); // sleep
 	// sleep mode, high frequency
@@ -300,7 +301,7 @@ int Config_SX1276(void){
 	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);    // max receiving timeout
 	SPIwriteRegister(LR_RegPreambleMsb,0x00);		//
 	SPIwriteRegister(LR_RegPreambleLsb,16);         // preamble 16 bytes  
-	SPIwriteRegister(LR_RegPayloadLength,14);		// payload 54 bytes
+	SPIwriteRegister(LR_RegPayloadLength,13);		// payload 54 bytes
 	SPIwriteRegister(LR_RegMaxPayloadLength,15);	// payload max 60 bytes
 	SPIwriteRegister(REG_LR_PADAC,0x87);            // transmission power 20dBm
 	SPIwriteRegister(LR_RegHopPeriod,0x00);         // no frequency hoping
@@ -332,9 +333,6 @@ int Config_SX1276(void){
 		a=a+SPIreadRegister(REG_LR_DIOMAPPING1);
 		a=a+SPIreadRegister(LR_RegFifoRxBaseAddr);
 
-	
-	
-	delay(200);
 	SPIwriteRegister(LR_RegOpMode,0x85);             // standby mode, high frequency
 	return a;
 
@@ -379,14 +377,10 @@ void init_rx(void){
 	SPIwriteRegister(LR_RegOpMode, 0x85);//free run rx
 	Serial.println("Switching to RX CONTINUOUS");
 	byte opmode = SPIreadRegister(LR_RegOpMode);
-	delay(100);
 
 	while(opmode != 0x85){
 		Serial.print(".");
-		
-		delay(200);
 		SPIwriteRegister(0x01, 0x85);
-		delay(200);
 		opmode = SPIreadRegister(0x01);
 	}
 

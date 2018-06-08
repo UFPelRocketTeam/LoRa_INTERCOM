@@ -121,7 +121,7 @@ int pqd_flag=0;
 //SFE_BMP180 bmp180;
 char filename[7]="00.TXT";  //nome do arquivo inicial
 
-int8_t payload[14]={0,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,0xAA,0xBB,0xCC,0xDD,0xEE,0xFF};
+char payload[14]={0,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,0xAA,0xBB,0xCC,0xDD,0xEE,0xFF};
 
 
 void setup(){
@@ -129,8 +129,8 @@ void setup(){
 	// configura os instrumentos
 
 	Serial.begin(9600);
-	Wire.begin();
-	/*payload[1] = bmp180.altitude();
+	/*Wire.begin();
+	payload[1] = bmp180.altitude();
 	payload[13]=payload[1];
 	payload[2] = bmp180.getPressure();
 	payload[3] = bmp180.getTemperatureC();
@@ -244,8 +244,8 @@ void setup(){
 	SPIwriteRegister(LR_RegSymbTimeoutLsb,0xFF);    // max receiving timeout
 	SPIwriteRegister(LR_RegPreambleMsb,0x00);		//
 	SPIwriteRegister(LR_RegPreambleLsb,16);         // preamble 16 bytes  
-	SPIwriteRegister(LR_RegPayloadLength,0x38);		// payload 54 bytes
-	SPIwriteRegister(LR_RegMaxPayloadLength,0x3C);	// payload max 60 bytes
+	SPIwriteRegister(LR_RegPayloadLength,13);		// payload size, bytes
+	SPIwriteRegister(LR_RegMaxPayloadLength,15);	// payload max, bytes
 	SPIwriteRegister(REG_LR_PADAC,0x87);            // transmission power 20dBm
 	SPIwriteRegister(LR_RegHopPeriod,0x00);         // no frequency hoping
 	SPIwriteRegister(REG_LR_DIOMAPPING2,0x01);      // DIO5=ModeReady,DIO4=CadDetected
@@ -254,6 +254,9 @@ void setup(){
 	delay(200);
 	SPIwriteRegister(LR_RegOpMode,0x81);            //LoRa standby
 	Serial.println("\nCONFIG DONE");
+	int size = sizeof(payload);
+	Serial.print("Packet Size:");
+	Serial.println(size);
 }
 
 
@@ -330,7 +333,7 @@ byte SPIwriteRegister(byte addr,byte value) {
 }
 
 
-void SPIwriteBurst(unsigned char addr, int *ptr, unsigned char len){ 
+void SPIwriteBurst(unsigned char addr, char *ptr, unsigned char len){ 
 	unsigned char i;
 	unsigned char result;
 	digitalWrite(SS, LOW);          // Select LoRa module
@@ -392,6 +395,7 @@ void transmit(void) {
 	//SPIwriteBurst(0x00,payload,payload_length);   // write data in fifo
 	for (int m=0;m<=payload_length;m++){
 		SPIwriteRegister(0x00, payload[m]);
+		delay(10);
 	}
 	delay(100);
 	/*for (int m=0;m<=payload_length;m++){
@@ -413,6 +417,7 @@ void transmit(void) {
 
 		}
 	}
+	if(temp&0x08){Serial.println("\nTX done");}
 	Serial.println();
 }
 /*
