@@ -2,3 +2,7 @@
 *.pdf
 
 *.bak
+
+octave-workspace
+
+*.csv
