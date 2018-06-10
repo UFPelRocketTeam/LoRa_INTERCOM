@@ -1,4 +1,4 @@
-//Portando o Legado pro maple mini ARM-Cortex M3
+//altimetrotwks1.3
 
 //ENDEREÇOS I2C
 #define ACCEL 0x53
@@ -16,199 +16,259 @@
 #define GYROS 0x68
 #define GYR_R 0x1B
 
-
+#include "Arduino.h"
+#include "SFE_BMP180.h"
+//#include "MPU6050.h"
 #include <SoftWire.h>
+#include "I2Cdev.h"
+//#include "SD.h"
 
-SoftWire SWire(PB6, PB7);
-/*
 
-	Well, they are supposed to die. Then you come in here and buy another!
+#define IGNITOR 7
+#define LED 33
+#define TIME 10000
 
-*/
+int16_t altura;
+int16_t alturamax;
+int16_t pressao;
+int16_t temperatura;
+int i=0;
+int flag=0;
 
 int16_t MAGx,GYRx,ACCx;
 int16_t MAGy,GYRy,ACCy;
 int16_t MAGz,GYRz,ACCz;
-int16_t temp;
-float tempC;
+
+SoftWire FWire(PB6, PB7);
+
+SFE_BMP180 bmp180;
+char filename[7]="00.TXT";  //nome do arquivo inicial
+
+void setup()
+{
+  Serial.begin(9600);
+  while (!Serial) ;
+    Serial.println("Start");
+    Serial.println("1");
+    bmp180.begin();
+    Serial.println("2");
+    FWire.begin();
+    Serial.println("3");
+ //   pinMode(SDFILE_PIN_CS, OUTPUT);
+    Serial.println("4");
+    pinMode(IGNITOR, OUTPUT);
+    Serial.println("5");
+      pinMode(LED, OUTPUT);
+    Serial.println("Foi!!! =D");
+ /* if (!SD.begin())
+  {
+    Serial.println(F("KEBAB REMOVED"));
+    while(1);
+  }
+  Serial.println(F("É HORA DO SHOW."));
+  while(SD.exists(filename))
+  {
+    if(i<10)
+    sprintf(filename,"0%d.TXT",i);
+    else
+    sprintf(filename,"%2d.TXT",i);
+    i++;
+  }
+  sdFile = SD.open(filename, FILE_WRITE);*/
+  digitalWrite(LED,HIGH);
+    altura = bmp180.altitude();
+    alturamax=altura;
+    pressao = bmp180.getPressure();
+    temperatura = bmp180.getTemperatureC();
+
+  FWire.beginTransmission(ACCEL);
+
+    FWire.write(0x2D); // modo medição
+    FWire.write(8);
+  FWire.endTransmission(); 
+    
+    FWire.beginTransmission(ACCEL);
+    FWire.write(0x21); // desativa modo double tap
+    FWire.write(0);
+    FWire.endTransmission();
+    FWire.beginTransmission(ACCEL);
+    FWire.write(0x22); // idem
+    FWire.write(0);
+    FWire.endTransmission();
+    FWire.beginTransmission(ACCEL);
+    FWire.write(0x23); // idem
+    FWire.write(0);
+    FWire.endTransmission();
+    FWire.beginTransmission(ACCEL);
+    FWire.write(0x31); // resolução completa, escala +/- 16g
+    FWire.write(0x0B);  // 0.004 g por LSB
+    FWire.endTransmission();
 
 
-
-void setup(){
-	Serial.begin(9600);
-	SWire.begin();
-	pinMode(33,OUTPUT);
-	SWire.beginTransmission(MAGNT); //start talking
-		
-	SWire.write(0x02); // Set the Register
-	SWire.write(0x00); // Tell the HMC5883 to Continuously Measure
-	
-	int j = SWire.endTransmission();
-		switch (j){
-		case 0: Serial.println("MAGNT SETUP OK"); break;
-		case 1: Serial.println("MAGNT SETUP TRANSMIT BUFF OVF"); break;
-		case 2: Serial.println("MAGNT SETUP ADDRESS NACK"); break;
-		case 3: Serial.println("MAGNT SETUP DATA NACK"); break;
-		case 4: Serial.println("MAGNT SETUP BELGIUM"); break;
-	}
-
-// ====================================================================
-
-	SWire.beginTransmission(ACCEL);
-
-		SWire.write(0x2D); // modo medição
-		SWire.write(8);
-		
-		SWire.write(0x21); // desativa modo double tap
-		SWire.write(0);
-		SWire.write(0x22); // idem
-		SWire.write(0);
-		SWire.write(0x23); // idem
-		SWire.write(0);
-		SWire.write(0x31); // resolução completa, escala +/- 2g
-		SWire.write(0x08);  
-
-		int k = SWire.endTransmission();
-		switch (k){
-		case 0: Serial.println("ACCEL SETUP OK"); break;
-		case 1: Serial.println("ACCEL SETUP TRANSMIT BUFF OVF"); break;
-		case 2: Serial.println("ACCEL SETUP ADDRESS NACK"); break;
-		case 3: Serial.println("ACCEL SETUP DATA NACK"); break;
-		case 4: Serial.println("ACCEL SETUP BELGIUM"); break;
-	}
-
-// ===================================================================
-
-
-	SWire.beginTransmission(GYROS);
-		SWire.write(0x16);
-		SWire.write(0x1C);
-	int i = SWire.endTransmission();
-	switch (i){
-		case 0: Serial.println("GYROS SETUP OK"); break;
-		case 1: Serial.println("GYROS SETUP TRANSMIT BUFF OVF"); break;
-		case 2: Serial.println("GYROS SETUP ADDRESS NACK"); break;
-		case 3: Serial.println("GYROS SETUP DATA NACK"); break;
-		case 4: Serial.println("GYROS SETUP BELGIUM"); break;
-	}
-
+  FWire.begin();
+  
+  FWire.beginTransmission(MAGNT); //start talking
+  
+  FWire.write(0x02); // Set the Register
+  FWire.write(0x00); // Tell the HMC5883 to Continuously Measure
+  
+  int j = FWire.endTransmission();
+    switch (j){
+    case 0: Serial.println("MAGNT SETUP OK"); break;
+    case 1: Serial.println("MAGNT SETUP TRANSMIT BUFF OVF"); break;
+    case 2: Serial.println("MAGNT SETUP ADDRESS NACK"); break;
+    case 3: Serial.println("MAGNT SETUP DATA NACK"); break;
+    case 4: Serial.println("MAGNT SETUP BELGIUM"); break;
 }
 
+  FWire.beginTransmission(GYROS);
+    FWire.write(0x16);
+    FWire.write(0x1C);
+  int i = FWire.endTransmission();
+  switch (i){
+    case 0: Serial.println("GYROS SETUP OK"); break;
+    case 1: Serial.println("GYROS SETUP TRANSMIT BUFF OVF"); break;
+    case 2: Serial.println("GYROS SETUP ADDRESS NACK"); break;
+    case 3: Serial.println("GYROS SETUP DATA NACK"); break;
+    case 4: Serial.println("GYROS SETUP BELGIUM"); break;
+  }
 
+}
 void loop(){
-	digitalWrite(33,!digitalRead(33));
-	unsigned long int t0 = micros();
+   altura = bmp180.altitude();
+    pressao = bmp180.getPressure();
+    temperatura = bmp180.getTemperatureC();
+   
+        if(altura<(alturamax-20.0) && !flag)
+        {
+            digitalWrite(IGNITOR,HIGH);//abre o paraquedas
+            flag=1;
+        Serial.print(millis());
+        Serial.print(", ");
+        Serial.println("abriu");
+        }
+
+ 	if(altura > alturamax){
+      alturamax = altura;
+    }
 // ------------------ LER MAGNETOMETRO -----------------------------
-	
-	SWire.beginTransmission(MAGNT);
-	SWire.write(0x03); //start with register 3.
-	SWire.endTransmission();
-	
-	SWire.requestFrom(MAGNT, 6);
+  
+  FWire.beginTransmission(MAGNT);
+  FWire.write(0x03); //start with register 3.
+  FWire.endTransmission();
+  
+  FWire.requestFrom(MAGNT, 6);
 
-	if(6<=SWire.available()){
+  if(6==FWire.available()){
 
-		MAGx = SWire.read()<<8; //MSB  x 
-		MAGx |= SWire.read(); //LSB  x
-		MAGy = SWire.read()<<8; //MSB  z
-		MAGy |= SWire.read(); //LSB z
-		MAGz = SWire.read()<<8; //MSB y
-		MAGz |= SWire.read(); //LSB y
-	}
+    MAGx = FWire.read()<<8; //MSB  x 
+    MAGx |= FWire.read(); //LSB  x
+    MAGy = FWire.read()<<8; //MSB  z
+    MAGy |= FWire.read(); //LSB z
+    MAGz = FWire.read()<<8; //MSB y
+    MAGz |= FWire.read(); //LSB y
+  }
 //--------------------------------------------------
 
 // ------------------ LER GYROS -----------------------------
 
-	SWire.beginTransmission(GYROS);
-	SWire.write(GYR_R); //start with register 3.
-	SWire.endTransmission();
-	
-	SWire.requestFrom(GYROS, 8);
+  FWire.beginTransmission(GYROS);
+  FWire.write(GYR_R); //start with register 3.
+  FWire.endTransmission();
+  
+  FWire.requestFrom(GYROS, 8);
 
-	if(SWire.available() == 8){
+  if(FWire.available() == 8){
 
-		temp = SWire.read()<<8; //MSB  x 
-		temp |= SWire.read(); //LSB  x
-		GYRx = SWire.read()<<8; //MSB  z
-		GYRx |= SWire.read(); //LSB z
-		GYRy = SWire.read()<<8; //MSB y
-		GYRy |= SWire.read(); //LSB y
-		GYRz = SWire.read()<<8; //MSB y
-		GYRz |= SWire.read(); //LSB y
+    int temp = FWire.read()<<8; //MSB  x 
+    temp |= FWire.read(); //LSB  x
+    GYRx = FWire.read()<<8; //MSB  z
+    GYRx |= FWire.read(); //LSB z
+    GYRy = FWire.read()<<8; //MSB y
+    GYRy |= FWire.read(); //LSB y
+    GYRz = FWire.read()<<8; //MSB y
+    GYRz |= FWire.read(); //LSB y
 
-	}
+  }
 
-	tempC = temp/280 + 82.142857;
+  
 //--------------------------------------------------
 
 // ------------------ LER ACELEROMETRO -----------------------------
 
-	SWire.beginTransmission(ACCEL);
-	SWire.write(ACCXLO);
-	SWire.write(ACCXHI);
-	SWire.endTransmission();
-	
-	SWire.requestFrom(ACCEL, 2);
-	if (SWire.available() <= 2){
-		ACCx = SWire.read() ;
-		ACCx |= SWire.read()<< 8;
-	}
-	
-	// LER ACCEL EIXO Y
-	
-	SWire.beginTransmission(ACCEL);
-	SWire.write(ACCYLO);
-	SWire.write(ACCYHI);
-	SWire.endTransmission();
-	
-	SWire.requestFrom(ACCEL, 2);
-	if (SWire.available() <= 2){
-		ACCy = SWire.read();
-		ACCy |= SWire.read() << 8;
-	}
-	
-	
-	// LER ACCEL EIXO Z
 
-	SWire.beginTransmission(ACCEL);
-	SWire.write(ACCZLO);
-	SWire.write(ACCZHI);
-	SWire.endTransmission();
-	
-	SWire.requestFrom(ACCEL, 2);
-	if (SWire.available() <= 2){
-		ACCz = SWire.read();
-		ACCz |= SWire.read()<<8;
-	}
-unsigned long int tf = micros();
+  FWire.beginTransmission(ACCEL);
+  FWire.write(ACCXLO);
+  FWire.write(ACCXHI);
+  FWire.endTransmission();
+  
+  FWire.requestFrom(ACCEL, 2);
+  if (FWire.available() <= 2){
+    ACCx = FWire.read() ;
+    ACCx |= FWire.read()<< 8;
+  }
+  
+  // LER ACCEL EIXO Y
+  
+  FWire.beginTransmission(ACCEL);
+  FWire.write(ACCYLO);
+  FWire.write(ACCYHI);
+  FWire.endTransmission();
+  
+  FWire.requestFrom(ACCEL, 2);
+  if (FWire.available() <= 2){
+    ACCy = FWire.read();
+    ACCy |= FWire.read() << 8;
+  }
+  
+  
+  // LER ACCEL EIXO Z
 
-	unsigned long int dt = (tf - t0);
+  FWire.beginTransmission(ACCEL);
+  FWire.write(ACCZLO);
+  FWire.write(ACCZHI);
+  FWire.endTransmission();
+  
+  FWire.requestFrom(ACCEL, 2);
+  if (FWire.available() <= 2){
+    ACCz = FWire.read();
+    ACCz |= FWire.read()<<8;
+  }
+  
+//--------------------------------------------------
 
+  Serial.print(millis());
+  Serial.print("\t");
+  Serial.print(altura);
+  Serial.print("\t");
+  Serial.print(pressao);
+  Serial.print("\t");
+  Serial.print(temperatura);
+  Serial.print("\t");
+  Serial.print(ACCx);
+  Serial.print("\t");
+  Serial.print(ACCy);
+  Serial.print("\t");
+  Serial.print(ACCz);
+  Serial.print("\t");
+  Serial.print(GYRx);
+  Serial.print("\t");
+  Serial.print(GYRy);
+  Serial.print("\t");
+  Serial.print(GYRz);
+  Serial.print("\t");
+  Serial.print(MAGx);
+  Serial.print("\t");
+  Serial.print(MAGy);
+  Serial.print("\t");
+  Serial.print(MAGz);
+  Serial.println();
 
-
-
-// --------------------------------- Cuspir resultados
-	Serial.print(ACCx);
-	Serial.print(",");
-	Serial.print(ACCy);
-	Serial.print(",");
-	Serial.print(ACCz);
-	Serial.print(",");
-	Serial.print(GYRx);
-	Serial.print(",");
-	Serial.print(GYRy);
-	Serial.print(",");
-	Serial.print(GYRz);
-	Serial.print(",");
-	Serial.print(MAGx);
-	Serial.print(",");
-	Serial.print(MAGy);
-	Serial.print(",");
-	Serial.print(MAGz);
-	Serial.print(",");
-	Serial.print(dt);
-	Serial.print(",");
-	Serial.print(tempC);
-	Serial.println(" ");
-
-}
+  /*
+      if(millis()>TIME)
+    {
+       sdFile.close();
+       digitalWrite(LED,LOW);
+    }
+    */
+}-
