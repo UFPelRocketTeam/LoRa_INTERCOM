@@ -78,6 +78,8 @@
 #define payload_length 16
 
 #include <SPI.h>
+#include <Servo.h>
+
 
 #define SPI1_NSS_PIN PA4    //SPI_1 Chip Select pin is PA4. You can change it to the STM32 pin you want.
 #define SPI2_NSS_PIN PB12   //SPI_2 Chip Select pin is PB12. You can change it to the STM32 pin you want.
@@ -108,6 +110,8 @@
 #define IGNITOR 7
 #define LED 33
 
+Servo pudim;
+
 SPIClass SPI_2(2); //Create an instance of the SPI Class called SPI_2 that uses the 2nd SPI Port
 
 int8_t i=0;
@@ -121,6 +125,8 @@ int16_t temperatura;
 int16_t MAGx,GYRx,ACCx;
 int16_t MAGy,GYRy,ACCy;
 int16_t MAGz,GYRz,ACCz;
+
+
 
 int16_t payload[16]={0,0,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,0xAA,0xBB,0xCC,0xDD,0xEE,0xFF,0,0};
 
@@ -197,7 +203,12 @@ void setup() {
 
 	SPIwriteRegister(LR_RegOpMode,0x85);             // standby mode, high frequency
 	Serial.print(a);
-
+	pudim.attach(27);
+	delayMicroseconds(10);
+	pudim.write(0);
+	delay(1000);
+	pudim.write(90);
+	delay(120000); //tempo pra ver se a portinha trancou
 
 // ==== configuração dos instrumentos
 	bmp180.begin();
@@ -285,9 +296,17 @@ void loop() {
    
         if(altura<(alturamax-20.0) && !flag)
         {
-            digitalWrite(IGNITOR,HIGH);//abre o paraquedas
-            flag=1;
-         	
+        	flag = 1;
+        	pudim.write(0); //abre o drogue
+         	alturamax = bmp180.altitude();
+         	flag = 2;
+
+        }
+
+        if(altura<(alturamax-100) && (flag == 2)){
+        	digitalWrite(IGNITOR,HIGH);
+        	flag = 3;
+
         }
 
  	if(altura > alturamax){
