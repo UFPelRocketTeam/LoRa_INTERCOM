@@ -303,7 +303,7 @@ void loop() {
 
         }
 
-        if(altura<(alturamax-100) && (flag == 2)){
+        if(altura<400 && (flag == 2)){
         	digitalWrite(IGNITOR,HIGH);
         	flag = 3;
 
@@ -389,13 +389,21 @@ void loop() {
 	}
 	//==================== monta o buffer ================== 
 
+	int16_t altura_broadcast;
+	int16_t pressao_broadcast;
+	int16_t temperatura_broadcast;
+
+	altura_broadcast = (int16_t)(altura+0.5);
+	pressao_broadcast = (int16_t)(pressao+0.5);
+	temperatura_broadcast = (int16_t)(temperatura+0.5);
+
 	//| 0  | 1  | 2  | 3  | 4  | 5  | 6  | 7  | 8  | 9  | 10 | 11 | 12 | 13 | 14 |
 	//|TIME|ALTI|PRES|TEMP|ACCX|ACCY|ACCZ|GYRX|GYRY|GYRZ|MAGX|MAGY|MAGZ|ALTM|NULL|	.
 	payload[0] = 0;
 	payload[1] = millis()*10;
-	payload[2] = altura;
-	payload[3] = pressao;
-	payload[4] = temperatura;
+	payload[2] = altura_broadcast;
+	payload[3] = pressao_broadcast;
+	payload[4] = temperatura_broadcast;
 	payload[5] = ACCx;
 	payload[6] = ACCy;
 	payload[7] = ACCz;
@@ -409,7 +417,7 @@ void loop() {
 	payload[15] = 0;
 	payload[16] = 0;
 
-	if (flag == 1){
+	if ((flag == 1)||(flag ==2)){
 		payload[0] =  0;
 		payload[1] =  1;
 		payload[2] =  altura;
