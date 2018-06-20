@@ -105,10 +105,15 @@
 //#include "MPU6050.h"
 #include <SoftWire.h>
 #include "I2Cdev.h"
-//#include "SD.h"
+#include "SD.h"
 
 #define IGNITOR 7
 #define LED 33
+#define SDFILE_PIN_CS  7
+File sdFile;
+
+char filename[7]="00.TXT";  //nome do arquivo inicial
+
 
 Servo pudim;
 
@@ -136,12 +141,37 @@ SFE_BMP180 bmp180;
 
 void setup() {
 
+  // Setup SPI 1
+  SPI.begin(); //Initialize the SPI_1 port.
+  SPI.setBitOrder(MSBFIRST); // Set the SPI_1 bit order
+  SPI.setDataMode(SPI_MODE0); //Set the  SPI_2 data mode 0
+  SPI.setClockDivider(SPI_CLOCK_DIV8);      // Slow speed (72 / 16 = 4.5 MHz SPI_1 speed)
+  pinMode(SDFILE_PIN_CS, OUTPUT);
+
   // Setup SPI 2
   SPI_2.begin(); //Initialize the SPI_2 port.
   SPI_2.setBitOrder(MSBFIRST); // Set the SPI_2 bit order
   SPI_2.setDataMode(SPI_MODE0); //Set the  SPI_2 data mode 0
   SPI_2.setClockDivider(SPI_CLOCK_DIV16);  // Use a different speed to SPI 1
   pinMode(SPI2_NSS_PIN, OUTPUT);
+// setup cartão
+
+	if (!SD.begin())
+    {
+        //Serial.println(F("não funciona ou não está presente"));
+        while(1);
+    }
+     //Serial.println(F("Cartão de memória inicializado."));
+    while(SD.exists(filename))
+    {
+      if(i<10)
+        sprintf(filename,"0%d.TXT",i);
+      else
+      sprintf(filename,"%2d.TXT",i);
+      i++;
+    }
+    sdFile = SD.open(filename, FILE_WRITE);
+    digitalWrite(13,HIGH);
 
 // config do lora
 	
@@ -205,9 +235,9 @@ void setup() {
 	Serial.print(a);
 	pudim.attach(27);
 	delayMicroseconds(10);
-	pudim.write(0);
+	pudim.write(270);
 	delay(1000);
-	pudim.write(90);
+	pudim.write(0);
 	delay(120000); //tempo pra ver se a portinha trancou
 
 // ==== configuração dos instrumentos
@@ -297,7 +327,7 @@ void loop() {
         if(altura<(alturamax-20.0) && !flag)
         {
         	flag = 1;
-        	pudim.write(0); //abre o drogue
+        	pudim.write(270); //abre o drogue
          	alturamax = bmp180.altitude();
          	flag = 2;
 
@@ -392,9 +422,12 @@ void loop() {
 	int16_t altura_broadcast;
 	int16_t pressao_broadcast;
 	int16_t temperatura_broadcast;
+	int16_t altmax_broadcast;
+
 
 	altura_broadcast = (int16_t)(altura+0.5);
 	pressao_broadcast = (int16_t)(pressao+0.5);
+	temperatura_broadcast = (int16_t)(temperatura+0.5);
 	temperatura_broadcast = (int16_t)(temperatura+0.5);
 
 	//| 0  | 1  | 2  | 3  | 4  | 5  | 6  | 7  | 8  | 9  | 10 | 11 | 12 | 13 | 14 |
@@ -413,7 +446,7 @@ void loop() {
 	payload[11] = MAGx;
 	payload[12] = MAGy;
 	payload[13] = MAGz;
-	payload[14] = alturamax;
+	payload[14] = altmax_broadcast;
 	payload[15] = 0;
 	payload[16] = 0;
 
@@ -476,6 +509,36 @@ void loop() {
 	}
 	if(temp&0x08){Serial.println("\nTX done");}
 	Serial.println();
+	// ================= DATALOGGER ====================
+	
+ 	sdFile.print(millis());
+ 	sdFile.print(altura);
+ 	sdFile.print(", ");
+ 	sdFile.print(pressao);
+ 	sdFile.print(", ");
+ 	sdFile.print(temperatura);
+ 	sdFile.print(",");
+ 	sdFile.print(ACCx);
+ 	sdFile.print(",");
+ 	sdFile.print(ACCy);
+ 	sdFile.print(",");
+ 	sdFile.print(ACCz);
+ 	sdFile.print(",");
+ 	sdFile.print(GYRx);
+ 	sdFile.print(",");
+ 	sdFile.print(GYRy);
+ 	sdFile.print(",");
+ 	sdFile.print(GYRz);
+ 	sdFile.print(",");
+ 	sdFile.print(MAGx);
+ 	sdFile.print(",");
+ 	sdFile.print(MAGy);
+ 	sdFile.print(",");
+ 	sdFile.print(MAGz);
+ 	sdFile.println();
+ 	sdFile.flush();
+
+ 	// ============= GPS =================
 
 }
 
