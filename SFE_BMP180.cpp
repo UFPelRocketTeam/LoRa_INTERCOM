@@ -18,11 +18,10 @@
 */
 
 #include "SFE_BMP180.h"
-#include <SoftWire.h>
+#include <Wire.h>
 #include <stdio.h>
 #include <math.h>
 
-SoftWire BWire(PB6, PB7);
 
 SFE_BMP180::SFE_BMP180()
 // Base library type
@@ -39,7 +38,7 @@ char SFE_BMP180::begin()
 	
 	// Start up the Arduino's "wire" (I2C) library:
 	
-	BWire.begin();
+	Wire.begin();
 
 	// The BMP180 includes factory calibration data stored on the device.
 	// Each device has different numbers, these must be retrieved and
@@ -128,18 +127,18 @@ char SFE_BMP180::begin()
 		*/
 		
 		// Success!
-	 baseline = getPressure();
-	Serial.println(F("BMP180 init success"));
-	Serial.print(F("baseline pressure: "));
-	Serial.print(baseline);
-	Serial.println(F(" mb"));  
+     baseline = getPressure();
+    Serial.println(F("BMP180 init success"));
+    Serial.print(F("baseline pressure: "));
+    Serial.print(baseline);
+    Serial.println(F(" mb"));  
 		return(1);
 	}
 	else
 	{
-	// Oops, something went wrong, this is usually a connection problem,
-	Serial.println(F("BMP180 init fail (disconnected?)\n\n"));
-	while(1); // Pause forever.
+    // Oops, something went wrong, this is usually a connection problem,
+    Serial.println(F("BMP180 init fail (disconnected?)\n\n"));
+    while(1); // Pause forever.
 	}
 }
 
@@ -188,16 +187,16 @@ char SFE_BMP180::readBytes(unsigned char *values, char length)
 {
 	char x;
 
-	BWire.beginTransmission(BMP180_ADDR);
-	BWire.write(values[0]);
-	_error = BWire.endTransmission();
+	Wire.beginTransmission(BMP180_ADDR);
+	Wire.write(values[0]);
+	_error = Wire.endTransmission();
 	if (_error == 0)
 	{
-		BWire.requestFrom(BMP180_ADDR,length);
-		while(BWire.available() != length) ; // wait until bytes are ready
+		Wire.requestFrom(BMP180_ADDR,length);
+		while(Wire.available() != length) ; // wait until bytes are ready
 		for(x=0;x<length;x++)
 		{
-			values[x] = BWire.read();
+			values[x] = Wire.read();
 		}
 		return(1);
 	}
@@ -212,9 +211,9 @@ char SFE_BMP180::writeBytes(unsigned char *values, char length)
 {
 	char x;
 	
-	BWire.beginTransmission(BMP180_ADDR);
-	BWire.write(values,length);
-	_error = BWire.endTransmission();
+	Wire.beginTransmission(BMP180_ADDR);
+	Wire.write(values,length);
+	_error = Wire.endTransmission();
 	if (_error == 0)
 		return(1);
 	else
@@ -237,23 +236,20 @@ char SFE_BMP180::startTemperature(void)
 		return(0); // or return 0 if there was a problem communicating with the BMP
 }
 
-int16_t SFE_BMP180::getTemperatureC()
+double SFE_BMP180::getTemperatureC()
 {
   delay(startTemperature());
   double T;
-  int16_t temp_int;
   getTemperature(T);
-  temp_int = (int16_t)(T + 0.5);
-  return temp_int;
+  return T;
 }
 
 double SFE_BMP180::getTemperatureF()
 {
-
   return  getTemperatureC() * 1.8 + 32;
 }
 
-	
+    
 char SFE_BMP180::getTemperature(double &T)
 // Retrieve a previously-started temperature reading.
 // Requires begin() to be called once prior to retrieve calibration parameters.
@@ -333,7 +329,7 @@ char SFE_BMP180::startPressure(char oversampling)
 }
 
 
-int16_t SFE_BMP180::getPressure()
+double SFE_BMP180::getPressure()
 {
   char status;
   double T,P,p0,a;
@@ -347,48 +343,46 @@ int16_t SFE_BMP180::getPressure()
   status = startTemperature();
   if (status != 0)
   {
-	// Wait for the measurement to complete:
+    // Wait for the measurement to complete:
 
-	delay(status);
+    delay(status);
 
-	// Retrieve the completed temperature measurement:
-	// Note that the measurement is stored in the variable T.
-	// Use '&T' to provide the address of T to the function.
-	// Function returns 1 if successful, 0 if failure.
+    // Retrieve the completed temperature measurement:
+    // Note that the measurement is stored in the variable T.
+    // Use '&T' to provide the address of T to the function.
+    // Function returns 1 if successful, 0 if failure.
 
-	status = getTemperature(T);
-	if (status != 0)
-	{
-	  // Start a pressure measurement:
-	  // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
-	  // If request is successful, the number of ms to wait is returned.
-	  // If request is unsuccessful, 0 is returned.
+    status = getTemperature(T);
+    if (status != 0)
+    {
+      // Start a pressure measurement:
+      // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
+      // If request is successful, the number of ms to wait is returned.
+      // If request is unsuccessful, 0 is returned.
 
-	  status = startPressure(3);
-	  if (status != 0)
-	  {
-		// Wait for the measurement to complete:
-		delay(status);
+      status = startPressure(3);
+      if (status != 0)
+      {
+        // Wait for the measurement to complete:
+        delay(status);
 
-		// Retrieve the completed pressure measurement:
-		// Note that the measurement is stored in the variable P.
-		// Use '&P' to provide the address of P.
-		// Note also that the function requires the previous temperature measurement (T).
-		// (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
-		// Function returns 1 if successful, 0 if failure.
+        // Retrieve the completed pressure measurement:
+        // Note that the measurement is stored in the variable P.
+        // Use '&P' to provide the address of P.
+        // Note also that the function requires the previous temperature measurement (T).
+        // (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
+        // Function returns 1 if successful, 0 if failure.
 
-		status = getPressure(P,T);
-		if (status != 0)
-		{
-		  int16_t intP;
-		  intP = (int16_t)(P + 0.5);
-		  return(intP);
-		}
-		else Serial.println(F("error retrieving pressure measurement\n"));
-	  }
-	  else Serial.println(F("error starting pressure measurement\n"));
-	}
-	else Serial.println(F("error retrieving temperature measurement\n"));
+        status = getPressure(P,T);
+        if (status != 0)
+        {
+          return(P);
+        }
+        else Serial.println(F("error retrieving pressure measurement\n"));
+      }
+      else Serial.println(F("error starting pressure measurement\n"));
+    }
+    else Serial.println(F("error retrieving temperature measurement\n"));
   }
   else Serial.println(F("error starting temperature measurement\n"));
 }
@@ -444,25 +438,21 @@ char SFE_BMP180::getPressure(double &P, double &T)
 }
 
 
-int16_t SFE_BMP180::sealevel(double P, double A)
+double SFE_BMP180::sealevel(double P, double A)
 // Given a pressure P (mb) taken at a specific altitude (meters),
 // return the equivalent pressure (mb) at sea level.
 // This produces pressure readings that can be used for weather measurements.
 {
-	double a = (P/pow(1-(A/44330.0),5.255));
-	int16_t sealevel = (int16_t)(a+0.5);
-	return sealevel;
+	return(P/pow(1-(A/44330.0),5.255));
 }
 
 
-int16_t SFE_BMP180::altitude()//double P)//, double P0)
+double SFE_BMP180::altitude()//double P)//, double P0)
 // Given a pressure measurement P (mb) and the pressure at a baseline P0 (mb),
 // return altitude (meters) above baseline.
 {
-  double A = (44330.0*(1-pow(getPressure()/baseline,1/5.255)));
-  int16_t alti;
-  alti = (int16_t)(A+0.5);
-	return alti; // conversão da altitude para metros
+  
+	return(44330.0*(1-pow(getPressure()/baseline,1/5.255))); // conversão da altitude para metros
 }
 
 
@@ -477,3 +467,4 @@ char SFE_BMP180::getError(void)
 {
 	return(_error);
 }
+

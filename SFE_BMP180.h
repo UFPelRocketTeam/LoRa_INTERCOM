@@ -39,7 +39,7 @@ class SFE_BMP180
 			// command BMP180 to start a temperature measurement
 			// returns (number of ms to wait) for success, 0 for fail
 
-    int16_t getTemperatureC();
+    double getTemperatureC();
     double getTemperatureF();
     
 		char getTemperature(double &T);
@@ -52,7 +52,7 @@ class SFE_BMP180
 			// oversampling: 0 - 3 for oversampling value
 			// returns (number of ms to wait) for success, 0 for fail
 
-    int16_t getPressure();
+    double getPressure();
 
 		char getPressure(double &P, double &T);
 			// return absolute pressure measurement from previous startPressure command
@@ -60,13 +60,13 @@ class SFE_BMP180
 			// places returned value in P variable (mbar)
 			// returns 1 for success, 0 for fail
 
-		int16_t sealevel(double P, double A);
+		double sealevel(double P, double A);
 			// convert absolute pressure to sea-level pressure (as used in weather data)
 			// P: absolute pressure (mbar)
 			// A: current altitude (meters)
 			// returns sealevel pressure in mbar
 
-		int16_t altitude();//double P);//, double P0);
+		double altitude();//double P);//, double P0);
 			// convert absolute pressure to altitude (given baseline pressure; sea-level, runway, etc.)
 			// P: absolute pressure (mbar)
 			// P0: fixed baseline pressure (mbar)
